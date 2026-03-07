@@ -3,7 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import List, Optional
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
     QFrame,
@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QProgressBar,
+    QPushButton,
     QScrollArea,
     QTableWidget,
     QTableWidgetItem,
@@ -37,6 +38,9 @@ class DashboardPage(QWidget):
     - Grafove (uplate po mjesecima, narudžbe po kampanjama)
     - Tabele (rate koje kasne, rate ovog mjeseca)
     """
+    
+    # Signal za navigaciju na druge stranice
+    navigate_to = Signal(str)  # emits page name: "orders", "payments", "reports"
 
     def __init__(self) -> None:
         super().__init__()
@@ -62,12 +66,16 @@ class DashboardPage(QWidget):
         # 1. KPI Kartice
         kpi_section = self._create_kpi_section()
         main_layout.addWidget(kpi_section)
-        
-        # 2. Grafovi
+
+        # 2. Brze akcije
+        quick_actions = self._create_quick_actions_section()
+        main_layout.addWidget(quick_actions)
+
+        # 3. Grafovi
         charts_section = self._create_charts_section()
         main_layout.addWidget(charts_section)
-        
-        # 3. Tabele
+
+        # 4. Tabele
         tables_section = self._create_tables_section()
         main_layout.addWidget(tables_section)
         
@@ -153,6 +161,43 @@ class DashboardPage(QWidget):
         card._title_label.setText(kpi.title)
         card._value_label.setText(kpi.value)
         card._footer_label.setText(kpi.footer)
+
+    def _create_quick_actions_section(self) -> QFrame:
+        """Kreira sekciju sa brzim akcijama."""
+        card = QFrame()
+        card.setProperty("card", True)
+        layout = QHBoxLayout(card)
+        layout.setContentsMargins(18, 18, 18, 18)
+        layout.setSpacing(16)
+        
+        # Naslov
+        title = QLabel("⚡ Brze akcije")
+        title.setProperty("sectionTitle", True)
+        layout.addWidget(title)
+        layout.addStretch(1)
+        
+        # Dugme: Nova narudžba
+        new_order_btn = QPushButton("➕ Nova narudžba")
+        new_order_btn.setProperty("primary", True)
+        new_order_btn.setToolTip("Kreiraj novu narudžbu sa automatskim ratama")
+        new_order_btn.clicked.connect(lambda: self.navigate_to.emit("orders"))
+        layout.addWidget(new_order_btn)
+        
+        # Dugme: Evidentiraj uplatu
+        new_payment_btn = QPushButton("💳 Evidentiraj uplatu")
+        new_payment_btn.setProperty("primary", True)
+        new_payment_btn.setToolTip("Zabilježi novu uplatu na ratu")
+        new_payment_btn.clicked.connect(lambda: self.navigate_to.emit("payments"))
+        layout.addWidget(new_payment_btn)
+        
+        # Dugme: Otvori izvještaj
+        reports_btn = QPushButton("📊 Otvori izvještaj")
+        reports_btn.setProperty("primary", True)
+        reports_btn.setToolTip("Pogledaj mjesečne izvještaje i export u Excel")
+        reports_btn.clicked.connect(lambda: self.navigate_to.emit("reports"))
+        layout.addWidget(reports_btn)
+        
+        return card
 
     def _create_charts_section(self) -> QFrame:
         """Kreira sekciju sa grafovima."""

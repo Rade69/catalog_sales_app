@@ -81,6 +81,12 @@ class MainWindow(QMainWindow):
         self.page_names = [
             "Dashboard", "Kupci", "Kampanje", "Narudžbe", "Rate", "Uplate", "Izvještaji"
         ]
+        # Mapiranje za navigaciju: "orders" -> index 3
+        self.page_index_map = {
+            "orders": 3,
+            "payments": 5,
+            "reports": 6,
+        }
         self.nav_buttons = []
 
         for index, (name, page) in enumerate(self.pages):
@@ -90,12 +96,17 @@ class MainWindow(QMainWindow):
             layout.addWidget(btn)
             self.nav_buttons.append(btn)
             self.stack.addWidget(page)
+            
+            # Poveži navigate_to signal sa DashboardPage
+            if name.endswith("Dashboard"):
+                page.navigate_to.connect(self._navigate_from_dashboard)
 
         layout.addStretch(1)
 
         # Backup dugme
         backup_btn = QPushButton("💾 Backup baze")
         backup_btn.setProperty("secondary", True)
+        backup_btn.setToolTip("Napravi backup SQLite baze u /backup/ folder")
         backup_btn.clicked.connect(self._do_backup)
         layout.addWidget(backup_btn)
 
@@ -200,3 +211,14 @@ class MainWindow(QMainWindow):
         if hasattr(self, "status_refresh_label"):
             now = datetime.now().strftime("%H:%M:%S")
             self.status_refresh_label.setText(f"Posljednje osvježenje: {now}")
+
+    def _navigate_from_dashboard(self, page_key: str) -> None:
+        """
+        Navigacija sa Dashboarda na drugu stranicu.
+        
+        Args:
+            page_key: "orders", "payments" ili "reports"
+        """
+        index = self.page_index_map.get(page_key)
+        if index is not None:
+            self.switch_page(index, self.nav_buttons[index])

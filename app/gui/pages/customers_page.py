@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -66,14 +67,17 @@ class CustomersPage(QWidget):
         button_row = QHBoxLayout()
         self.save_btn = QPushButton("Sačuvaj")
         self.save_btn.setProperty("primary", True)
+        self.save_btn.setToolTip("Spremi izmjene u bazu podataka")
         self.save_btn.clicked.connect(self.save_customer)
 
         self.new_btn = QPushButton("Novi unos")
         self.new_btn.setProperty("secondary", True)
+        self.new_btn.setToolTip("Očisti formu za unos novog kupca (Ctrl+N)")
         self.new_btn.clicked.connect(self.clear_form)
 
         self.delete_btn = QPushButton("Obriši")
         self.delete_btn.setProperty("secondary", True)
+        self.delete_btn.setToolTip("Trajno ukloni odabranog kupca (ne može se poništiti)")
         self.delete_btn.clicked.connect(self.delete_customer)
 
         button_row.addWidget(self.save_btn)
@@ -95,10 +99,14 @@ class CustomersPage(QWidget):
         header_row.addStretch(1)
 
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Pretraga po imenu, telefonu ili mjestu...")
+        self.search_input.setPlaceholderText("🔍 Pretraži po imenu, telefonu ili gradu...")
         self.search_input.textChanged.connect(self.load_customers)
         self.search_input.setMaximumWidth(320)
         header_row.addWidget(self.search_input)
+        
+        # Ctrl+N prečica za novi unos
+        shortcut = QShortcut(QKeySequence("Ctrl+N"), self)
+        shortcut.activated.connect(self.clear_form)
         table_layout.addLayout(header_row)
 
         self.table = QTableWidget(0, 4)
@@ -122,6 +130,18 @@ class CustomersPage(QWidget):
 
     def load_customers(self) -> None:
         customers = CustomerService.list_customers(self.search_input.text())
+        
+        # Prazan state
+        if not customers:
+            self.table.setRowCount(1)
+            placeholder = QTableWidgetItem("Nema kupaca za prikaz")
+            placeholder.setTextAlignment(Qt.AlignCenter)
+            placeholder.setForeground(QColor("#9ca3af"))
+            placeholder.setFlags(Qt.ItemIsEnabled)
+            self.table.setItem(0, 0, placeholder)
+            self.table.setSpan(0, 0, 1, self.table.columnCount())
+            return
+        
         self.table.setRowCount(len(customers))
         for row, customer in enumerate(customers):
             values = [
@@ -179,12 +199,16 @@ class CustomersPage(QWidget):
         if self.selected_customer_id is None:
             QMessageBox.information(self, "Brisanje", "Prvo odaberi kupca iz tabele.")
             return
+        
+        # Dohvati ime kupca za poruku
+        customer_name = self.full_name_input.text() or "odabranog kupca"
+        
         reply = QMessageBox.question(
             self,
-            "Potvrda",
-            "Da li sigurno želiš obrisati odabranog kupca?",
+            "Potvrda brisanja",
+            f"Da li sigurno želiš obrisati kupca '{customer_name}'?\n\nOva radnja se ne može poništiti.",
             QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No,
+            QMessageBox.No  # default = No (sigurniji)
         )
         if reply != QMessageBox.Yes:
             return
