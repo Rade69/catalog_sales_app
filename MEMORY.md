@@ -22,7 +22,8 @@ app/
 ### Ključni Fajlovi
 - `run.py` - Ulazna tačka
 - `app/database/models.py` - SQLAlchemy modeli (datetime.now(UTC))
-- `app/gui/main_window.py` - Glavni prozor (sidebar, status bar, backup) — 8 tabova
+- `app/gui/main_window.py` - Glavni prozor (sidebar sa SVG ikonama, 7 modula)
+- `app/gui/icons.py` - SVG ikonice za navigaciju
 - `app/gui/pages/dashboard_page.py` - Dashboard (RED1: 4 KPI, RED2: 2 statusa, RED3: 2 tabele)
 - `app/gui/pages/campaigns_page.py` - Kampanje: import u modalnom dijalogu
 - `app/gui/pages/orders_page.py` - Narudžbe: dropdown kampanja/proizvoda, auto-fill cijene
@@ -83,6 +84,7 @@ get_current_month_installments()  # tabela rata ovog mjeseca
 - **0.6** - GUI poboljšanja (badge-ovi, ikonice, prečice, brze akcije)
 - **0.7** - Dashboard redizajn (bez grafova, 3 reda: KPI, Status, Tabele)
 - **0.8** - Cjenovnik sa supplier kolonom (prepoznavanje firme iz Excel-a)
+- **0.9** - Sidebar redizajn (SVG ikonice, Postavke sekcija, backup premješten)
 
 ### Ključne Implementacije
 
@@ -121,3 +123,10 @@ if is_supplier_row:
 #### Modalni Import Kampanje
 - Import forma premještena iz kartice u modalni dijalog
 - Dugme "📥 Import iz Excel-a" u headeru tabele kampanja
+
+#### Sidebar Navigacija (v0.9)
+- SVG ikonice umjesto emoji-ja (icons.py)
+- Aktivna stavka: plava pozadina, lijeva plava linija, bold tekst
+- Hover: tamnija pozadina
+- Backup premješten u Postavke sekciju
+- 7 modula: Dashboard, Kupci, Narudžbe, Kampanje, Uplate, Izvještaji, Postavke
