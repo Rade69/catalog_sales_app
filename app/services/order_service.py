@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 from typing import List, Optional, Tuple
 
 from sqlalchemy import select
@@ -17,6 +17,8 @@ from app.database.models import (
 )
 from datetime import date
 from dateutil.relativedelta import relativedelta
+
+from app.services.installment_service import InstallmentService
 
 
 class OrderService:
@@ -144,52 +146,11 @@ class OrderService:
             session.add(order)
             session.flush()  # Dohvati ID prije commita
 
-            # Generiši rate
-            OrderService._generate_installments(
-                session, order.id, price_decimal, installments
-            )
+            # Generiši rate koristeći InstallmentService
+            InstallmentService.generate_for_order(order)
 
             session.refresh(order)
             return order
-
-    @staticmethod
-    def _generate_installments(
-        session,
-        order_id: int,
-        total_price: Decimal,
-        count: int
-    ) -> None:
-        """
-        Generiše rate za narudžbu.
-        Posljednja rata se koriguje zbog zaokruživanja.
-        """
-        # Osnovna rata (zaokruženo na 2 decimale)
-        base_installment = (total_price / count).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
-        )
-
-        # Ukupno od prvih (count-1) rata
-        first_n_total = base_installment * (count - 1)
-
-        # Zadnja rata = ukupno - prethodne
-        last_installment = total_price - first_n_total
-
-        today = date.today()
-
-        for i in range(count):
-            if i < count - 1:
-                amount = base_installment
-            else:
-                amount = last_installment
-
-            installment = Installment(
-                order_id=order_id,
-                installment_number=i + 1,
-                amount=amount,
-                due_date=today + relativedelta(months=i + 1),
-                status=InstallmentStatus.PENDING
-            )
-            session.add(installment)
 
     @staticmethod
     def list_orders(customer_filter: Optional[int] = None) -> List[Order]:

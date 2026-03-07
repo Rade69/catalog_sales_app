@@ -1,3 +1,5 @@
+from PySide6.QtWidgets import QWidget
+
 from app.gui.pages.simple_pages import CrudPreviewPage
 
 
@@ -12,3 +14,7 @@ class InstallmentsPage(CrudPreviewPage):
                 ["Jelena Savić", "Tava set", "2/4", "20.03.2026", "Kasni", "35 KM"],
             ],
         )
+
+    def on_activate(self) -> None:
+        """Poziva se kada se stranica aktivira - osvježava podatke."""
+        pass  # Placeholder za buduću implementaciju

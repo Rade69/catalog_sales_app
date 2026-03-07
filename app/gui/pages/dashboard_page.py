@@ -217,22 +217,22 @@ class DashboardPage(QWidget):
         title_label = QLabel(title)
         title_label.setStyleSheet("color: #374151; font-weight: bold; font-size: 13px;")
         layout.addWidget(title_label)
-        
-        # Kontejner za barove
-        self.bars_container = QWidget()
-        self.bars_layout = QVBoxLayout(self.bars_container)
-        self.bars_layout.setSpacing(6)
-        self.bars_layout.setContentsMargins(0, 4, 0, 4)
-        layout.addWidget(self.bars_container)
-        
-        # Sačuvaj reference
-        card._bars_layout = self.bars_layout
+
+        # Kontejner za barove (lokalna varijabla, ne instance atribut)
+        bars_container = QWidget()
+        bars_layout = QVBoxLayout(bars_container)
+        bars_layout.setSpacing(6)
+        bars_layout.setContentsMargins(0, 4, 0, 4)
+        layout.addWidget(bars_container)
+
+        # Sačuvaj reference na card objektu
+        card._bars_layout = bars_layout
         card._title_label = title_label
-        
+
         # Ako ima podataka, popuni barove
         if labels and values:
             self._update_bar_chart(card, labels, values)
-        
+
         return card
 
     def _update_bar_chart(

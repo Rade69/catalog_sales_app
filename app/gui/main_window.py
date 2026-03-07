@@ -1,14 +1,18 @@
+from pathlib import Path
+
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QMessageBox,
     QPushButton,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
+from app.database.database import DATABASE_URL
 from app.gui.pages.campaigns_page import CampaignsPage
 from app.gui.pages.customers_page import CustomersPage
 from app.gui.pages.dashboard_page import DashboardPage
@@ -17,6 +21,7 @@ from app.gui.pages.orders_page import OrdersPage
 from app.gui.pages.payments_page import PaymentsPage
 from app.gui.pages.reports_page import ReportsPage
 from app.gui.styles import APP_STYLESHEET
+from app.utils.backup_manager import BackupManager
 
 
 class MainWindow(QMainWindow):
@@ -78,7 +83,13 @@ class MainWindow(QMainWindow):
 
         layout.addStretch(1)
 
-        footer = QLabel("Verzija 0.2 — kupci CRUD + izvještaj uplata")
+        # Backup dugme
+        backup_btn = QPushButton("💾 Backup baze")
+        backup_btn.setProperty("secondary", True)
+        backup_btn.clicked.connect(self._do_backup)
+        layout.addWidget(backup_btn)
+
+        footer = QLabel("Verzija 0.5 — Dashboard sa KPI-jevima")
         footer.setStyleSheet("color: #9ca3af; padding: 8px 12px;")
         footer.setWordWrap(True)
         layout.addWidget(footer)
@@ -136,3 +147,24 @@ class MainWindow(QMainWindow):
             btn.setProperty("active", btn is active_button)
             btn.style().unpolish(btn)
             btn.style().polish(btn)
+
+    def _do_backup(self) -> None:
+        """Kreira backup baze podataka."""
+        try:
+            # Izvuci putanju do baze iz DATABASE_URL
+            db_path = DATABASE_URL.replace("sqlite:///", "")
+            backup_dir = Path(__file__).resolve().parents[3] / "backup"
+            
+            backup_file = BackupManager.backup_database(db_path, backup_dir)
+            
+            QMessageBox.information(
+                self,
+                "Backup uspješan",
+                f"Backup kreiran:\n{backup_file}"
+            )
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Greška pri backup-u",
+                f"Backup nije uspio:\n{str(e)}"
+            )

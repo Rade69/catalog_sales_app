@@ -253,62 +253,64 @@ class DashboardService:
     # ---------------------------------------------------------------------
 
     @staticmethod
-    def get_overdue_installments(limit: int = 10) -> List[InstallmentRow]:
+    def get_overdue_installments(limit: int = 25) -> List[InstallmentRow]:
         """
         Vraća liste rata koje kasne.
-        
+
         Rata kasni ako:
         - due_date < danas
         - remaining_amount > 0
+
+        Koristi GROUP BY da izbjegne N+1 query problem.
         """
         today = date.today()
-        
+
         with session_scope() as session:
+            # Subquery za sumu uplata po rati
+            paid_sum_subq = (
+                select(
+                    Payment.installment_id,
+                    func.sum(Payment.amount).label("paid_amount")
+                )
+                .group_by(Payment.installment_id)
+                .subquery()
+            )
+
             # Query za rate koje kasne
             stmt = (
                 select(
                     Installment,
                     Order,
                     Customer,
-                    Product
+                    Product,
+                    func.coalesce(paid_sum_subq.c.paid_amount, 0).label("paid_amount")
                 )
                 .join(Order, Installment.order_id == Order.id)
                 .join(Customer, Order.customer_id == Customer.id)
                 .outerjoin(Product, Order.product_id == Product.id)
-                .outerjoin(Payment, Installment.id == Payment.installment_id)
+                .outerjoin(paid_sum_subq, Installment.id == paid_sum_subq.c.installment_id)
                 .where(
                     and_(
                         Installment.due_date < today,
                         # remaining_amount > 0
-                        (Installment.amount - func.coalesce(
-                            select(func.sum(Payment.amount))
-                            .where(Payment.installment_id == Installment.id)
-                            .correlate(Installment)
-                            .scalar_subquery(),
-                            0
-                        )) > 0
+                        (Installment.amount - func.coalesce(paid_sum_subq.c.paid_amount, 0)) > 0
                     )
                 )
                 .order_by(Installment.due_date.asc())
                 .limit(limit)
             )
-            
+
             results = session.execute(stmt).all()
-            
+
             rows: List[InstallmentRow] = []
             for row in results:
                 installment = row.Installment
                 order = row.Order
                 customer = row.Customer
-                
-                # Računaj plaćeno i preostalo
-                paid_amount = session.execute(
-                    select(func.sum(Payment.amount))
-                    .where(Payment.installment_id == installment.id)
-                ).scalar() or Decimal("0.00")
-                
+                paid_amount = row.paid_amount or Decimal("0.00")
+
                 remaining = installment.amount - paid_amount
-                
+
                 # Odredi status
                 if remaining <= 0:
                     status = "paid"
@@ -316,7 +318,7 @@ class DashboardService:
                     status = "partially_paid"
                 else:
                     status = "overdue"
-                
+
                 rows.append(InstallmentRow(
                     customer_name=customer.full_name if customer else "N/A",
                     product_name=order.product_name_snapshot,
@@ -328,7 +330,7 @@ class DashboardService:
                     due_date=installment.due_date,
                     status=status
                 ))
-            
+
             return rows
 
     # ---------------------------------------------------------------------
@@ -336,19 +338,37 @@ class DashboardService:
     # ---------------------------------------------------------------------
 
     @staticmethod
-    def get_current_month_installments(limit: int = 10) -> List[InstallmentRow]:
+    def get_current_month_installments(limit: int = 25) -> List[InstallmentRow]:
         """
         Vraća liste rata koje dospijevaju u tekućem mjesecu.
+
+        Koristi GROUP BY da izbjegne N+1 query problem.
         """
         today = date.today()
-        
+
         with session_scope() as session:
+            # Subquery za sumu uplata po rati
+            paid_sum_subq = (
+                select(
+                    Payment.installment_id,
+                    func.sum(Payment.amount).label("paid_amount")
+                )
+                .group_by(Payment.installment_id)
+                .subquery()
+            )
+
             stmt = (
-                select(Installment, Order, Customer, Product)
+                select(
+                    Installment,
+                    Order,
+                    Customer,
+                    Product,
+                    func.coalesce(paid_sum_subq.c.paid_amount, 0).label("paid_amount")
+                )
                 .join(Order, Installment.order_id == Order.id)
                 .join(Customer, Order.customer_id == Customer.id)
                 .outerjoin(Product, Order.product_id == Product.id)
-                .outerjoin(Payment, Installment.id == Payment.installment_id)
+                .outerjoin(paid_sum_subq, Installment.id == paid_sum_subq.c.installment_id)
                 .where(
                     and_(
                         extract('year', Installment.due_date) == today.year,
@@ -358,22 +378,18 @@ class DashboardService:
                 .order_by(Installment.due_date.asc())
                 .limit(limit)
             )
-            
+
             results = session.execute(stmt).all()
-            
+
             rows: List[InstallmentRow] = []
             for row in results:
                 installment = row.Installment
                 order = row.Order
-                
-                # Računaj plaćeno i preostalo
-                paid_amount = session.execute(
-                    select(func.sum(Payment.amount))
-                    .where(Payment.installment_id == installment.id)
-                ).scalar() or Decimal("0.00")
-                
+                customer = row.Customer
+                paid_amount = row.paid_amount or Decimal("0.00")
+
                 remaining = installment.amount - paid_amount
-                
+
                 # Odredi status
                 if remaining <= 0:
                     status = "paid"
@@ -381,9 +397,9 @@ class DashboardService:
                     status = "partially_paid"
                 else:
                     status = "pending"
-                
+
                 rows.append(InstallmentRow(
-                    customer_name=order.customer.full_name if order.customer else "N/A",
+                    customer_name=customer.full_name if customer else "N/A",
                     product_name=order.product_name_snapshot,
                     installment_number=installment.installment_number,
                     total_installments=order.installments_count,
@@ -393,7 +409,7 @@ class DashboardService:
                     due_date=installment.due_date,
                     status=status
                 ))
-            
+
             return rows
 
     # ---------------------------------------------------------------------
