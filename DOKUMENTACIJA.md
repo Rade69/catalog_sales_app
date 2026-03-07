@@ -185,7 +185,42 @@ rows_successful, rows_failed, message
 - Praćenje preostalih iznosa
 - Statusi: PENDING, PAID, OVERDUE
 
-### 6. Izvještaji
+### 6. Dashboard
+**Backend: `app/services/dashboard_service.py`**
+**Frontend: `app/gui/pages/dashboard_page.py`**
+
+Dashboard je početna stranica aplikacije sa pregledom ključnih poslovnih pokazatelja.
+
+**KPI Kartice (6 komada):**
+
+| KPI | Opis | Formula |
+|-----|------|---------|
+| Ukupan broj kupaca | Broj svih kupaca u bazi | `COUNT(Customer.id)` |
+| Aktivne narudžbe | Narudžbe sa neplaćenim ratama | COUNT gdje EXISTS rata sa `remaining > 0` |
+| Ukupan preostali dug | Sva nenaplaćena potraživanja | `SUM(Installment.amount) - SUM(Payment.amount)` |
+| Naplaćeno ovaj mjesec | Uplate u tekućem mjesecu | `SUM(Payment.amount)` WHERE year/month = danas |
+| Rate koje kasne | Neplaćene rate sa dospijećem u prošlosti | COUNT WHERE `due_date < danas` AND `remaining > 0` |
+| Rate ovog mjeseca | Rate sa dospijećem u tekućem mjesecu | COUNT WHERE year/month = danas |
+
+**Grafovi:**
+- Uplate po mjesecima (posljednjih 6 mjeseci) - bar chart
+- Broj narudžbi po kampanjama - bar chart
+
+**Tabele:**
+- Rate koje kasne (kupac, proizvod, rata, iznos, plaćeno, preostalo, dospijeće, status)
+- Rate za ovaj mjesec (ista struktura)
+
+**Računanje preostalog iznosa rate:**
+```python
+paid_amount = SUM(Payment.amount WHERE installment_id = X)
+remaining = installment.amount - paid_amount
+
+if remaining <= 0:        status = "paid"
+elif paid_amount > 0:     status = "partially_paid"
+else:                     status = "overdue/pending"
+```
+
+### 7. Izvještaji
 - Excel export izvještaja
 - Mjesečni pregled uplata
 - Pregled po kampanjama
@@ -256,6 +291,7 @@ python run.py
 - **0.2** - Import kampanja iz Excel-a
 - **0.3** - Narudžbe sa automatskim ratama
 - **0.4** - Import istorijskih podataka
+- **0.5** - Dashboard sa KPI-jevima, grafovima i tabelama
 
 ## Autori
 
