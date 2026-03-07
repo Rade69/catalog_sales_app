@@ -85,6 +85,7 @@ get_current_month_installments()  # tabela rata ovog mjeseca
 - **0.7** - Dashboard redizajn (bez grafova, 3 reda: KPI, Status, Tabele)
 - **0.8** - Cjenovnik sa supplier kolonom (prepoznavanje firme iz Excel-a)
 - **0.9** - Sidebar redizajn (SVG ikonice, Postavke sekcija, backup premješten)
+- **0.10** - Table helpers (konzistentan stil tabela, empty state, numeric items)
 
 ### Ključne Implementacije
 
@@ -130,3 +131,11 @@ if is_supplier_row:
 - Hover: tamnija pozadina
 - Backup premješten u Postavke sekciju
 - 7 modula: Dashboard, Kupci, Narudžbe, Kampanje, Uplate, Izvještaji, Postavke
+
+#### Table Helpers (v0.10)
+- `app/gui/table_helpers.py` - zajedničke funkcije za QTableWidget
+- `style_table()` - konzistentan stil (visina reda 36px, padding, header, hover)
+- `create_numeric_item()` - numeričke ćelije desno poravnate
+- `create_status_item()` - status badge widget
+- `show_empty_state()` - poruka kad nema podataka ("Nema podataka za prikaz")
+- Ažurirane sve stranice: Dashboard, Kupci, Cjenovnik, Kampanje, Narudžbe, Rate, Uplate, Izvještaji
