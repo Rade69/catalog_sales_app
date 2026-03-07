@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 
+from app.services.campaign_service import CampaignService
 from app.services.order_service import OrderService
 
 
@@ -22,9 +23,13 @@ class OrdersPage(QWidget):
         super().__init__()
 
         self.order_service = OrderService()
+        self.campaign_service = CampaignService()
+        # Mapa: display label -> CampaignPrice (za auto-fill cijene)
+        self._product_price_map: dict = {}
 
         self._init_ui()
         self._connect_signals()
+        self._load_campaigns_for_combo()
         self._load_customers()
         self._load_orders()
 
@@ -33,6 +38,25 @@ class OrdersPage(QWidget):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(16)
+
+        # Warning banner (prikazuje se ako nema aktivne kampanje)
+        self.campaign_warning = QLabel(
+            "⚠  Nema aktivne kampanje. Narudžba će biti vezana za prvu dostupnu kampanju "
+            "(draft/archived). Preporučuje se aktivirati kampanju prije unosa narudžbi."
+        )
+        self.campaign_warning.setWordWrap(True)
+        self.campaign_warning.setStyleSheet("""
+            QLabel {
+                background-color: #fffbeb;
+                color: #92400e;
+                border: 1px solid #fcd34d;
+                border-radius: 6px;
+                padding: 10px 14px;
+                font-size: 13px;
+            }
+        """)
+        self.campaign_warning.hide()
+        main_layout.addWidget(self.campaign_warning)
 
         # Splitter za formu i tabelu
         splitter = QSplitter(Qt.Vertical)
@@ -56,18 +80,28 @@ class OrdersPage(QWidget):
         layout = QFormLayout(group)
         layout.setSpacing(12)
 
+        # Kampanja (dropdown)
+        self.campaign_combo = QComboBox()
+        self.campaign_combo.setMinimumWidth(250)
+        layout.addRow("Kampanja:", self.campaign_combo)
+
         # Kupac (dropdown)
         self.customer_combo = QComboBox()
         self.customer_combo.setPlaceholderText("Odaberite kupca...")
         self.customer_combo.setMinimumWidth(250)
         layout.addRow("Kupac:", self.customer_combo)
 
-        # Naziv proizvoda
-        self.product_input = QLineEdit()
-        self.product_input.setPlaceholderText("npr. Philips Blender 500W")
-        layout.addRow("Naziv proizvoda:", self.product_input)
+        # Proizvod — editable combo (bira iz kampanje ili upisuje ručno)
+        self.product_combo = QComboBox()
+        self.product_combo.setEditable(True)
+        self.product_combo.setInsertPolicy(QComboBox.NoInsert)
+        self.product_combo.lineEdit().setPlaceholderText(
+            "Odaberite iz kampanje ili upišite naziv..."
+        )
+        self.product_combo.setMinimumWidth(250)
+        layout.addRow("Proizvod:", self.product_combo)
 
-        # Cijena
+        # Cijena (auto-fill iz kampanje, ili ručni unos)
         self.price_input = QLineEdit()
         self.price_input.setPlaceholderText("npr. 199.99")
         layout.addRow("Cijena (KM):", self.price_input)
@@ -148,6 +182,60 @@ class OrdersPage(QWidget):
     def _connect_signals(self) -> None:
         """Povezuje signale sa slotovima."""
         self.save_btn.clicked.connect(self.save_order)
+        self.campaign_combo.currentIndexChanged.connect(self._on_campaign_changed)
+        self.product_combo.activated.connect(self._on_product_activated)
+
+    def _load_campaigns_for_combo(self) -> None:
+        """Učitava kampanje u dropdown i automatski bira aktivnu."""
+        # Privremeno blokiraj signal da ne okine _on_campaign_changed za svaki add
+        self.campaign_combo.blockSignals(True)
+        self.campaign_combo.clear()
+        self.campaign_combo.addItem("— Odaberite kampanju —", userData=None)
+
+        campaigns = self.campaign_service.list_campaigns()
+        active_index = 0
+        for i, campaign in enumerate(campaigns, start=1):
+            status = campaign.status.value if hasattr(campaign.status, "value") else str(campaign.status)
+            label = f"{campaign.name}  [{status}]"
+            self.campaign_combo.addItem(label, userData=campaign.id)
+            if status == "active" and active_index == 0:
+                active_index = i
+
+        self.campaign_combo.blockSignals(False)
+        self.campaign_combo.setCurrentIndex(active_index)
+        # Ručno okini da se učitaju proizvodi za odabranu kampanju
+        self._on_campaign_changed(active_index)
+
+    def _on_campaign_changed(self, index: int) -> None:
+        """Učitava proizvode iz odabrane kampanje u product_combo."""
+        self.product_combo.blockSignals(True)
+        self.product_combo.clear()
+        self._product_price_map = {}
+        self.product_combo.blockSignals(False)
+
+        campaign_id = self.campaign_combo.currentData()
+        if not campaign_id:
+            return
+
+        prices = self.campaign_service.list_campaign_products(campaign_id)
+        for cp in prices:
+            if not cp.product:
+                continue
+            name = cp.product.name or ""
+            brand = cp.product.brand or ""
+            label = f"{brand} — {name}" if brand else name
+            self.product_combo.addItem(label, userData=name)
+            self._product_price_map[label] = cp
+
+    def _on_product_activated(self, index: int) -> None:
+        """Auto-fill cijene kad korisnik odabere proizvod iz dropdown-a."""
+        label = self.product_combo.itemText(index)
+        cp = self._product_price_map.get(label)
+        if cp is None:
+            return
+        # Prefer akcijsku cijenu ako postoji
+        price = cp.discount_price if cp.discount_price else cp.regular_price
+        self.price_input.setText(str(price))
 
     def _load_customers(self) -> None:
         """Učitava kupce u dropdown."""
@@ -160,6 +248,12 @@ class OrdersPage(QWidget):
                 f"{customer.full_name} ({customer.city or 'N/A'})",
                 userData=customer.id
             )
+
+        # Prikaži warning ako nema aktivne kampanje
+        if self.order_service.has_active_campaign():
+            self.campaign_warning.hide()
+        else:
+            self.campaign_warning.show()
 
     def _load_orders(self) -> None:
         """Učitava narudžbe u tabelu."""
@@ -213,9 +307,16 @@ class OrdersPage(QWidget):
 
     def save_order(self) -> None:
         """Čuva novu narudžbu."""
-        # Dohvati vrijednosti
         customer_id = self.customer_combo.currentData()
-        product_name = self.product_input.text()
+        campaign_id = self.campaign_combo.currentData()
+
+        # Stvarni naziv: iz userData ako je odabran iz dropdown-a, inače ono što je upisano
+        current_index = self.product_combo.currentIndex()
+        product_name = (
+            self.product_combo.itemData(current_index)
+            or self.product_combo.currentText()
+        ).strip()
+
         price = self.price_input.text()
         installments = self.installments_input.value()
 
@@ -223,18 +324,17 @@ class OrdersPage(QWidget):
         success, error = self.order_service.validate_order_input(
             customer_id, product_name, price, installments
         )
-
         if not success:
             self._show_message(error, error=True)
             return
 
         try:
-            # Kreiraj narudžbu
             order = self.order_service.create_order(
                 customer_id=customer_id,
                 product_name=product_name,
                 price=price,
-                installments=installments
+                installments=installments,
+                campaign_id=campaign_id,
             )
 
             self._show_message(
@@ -243,12 +343,12 @@ class OrdersPage(QWidget):
                 error=False
             )
 
-            # Očisti formu
-            self.product_input.clear()
+            # Očisti unos proizvoda i cijene
+            self.product_combo.setCurrentIndex(-1)
+            self.product_combo.clearEditText()
             self.price_input.clear()
             self.installments_input.setValue(1)
 
-            # Osvježi tabelu
             self._load_orders()
 
         except ValueError as e:
@@ -335,4 +435,6 @@ class OrdersPage(QWidget):
 
     def on_activate(self) -> None:
         """Poziva se kada se stranica aktivira."""
+        self._load_campaigns_for_combo()
+        self._load_customers()
         self._load_orders()

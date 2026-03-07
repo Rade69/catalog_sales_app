@@ -4,6 +4,7 @@ from decimal import Decimal
 from typing import List, Optional, Tuple
 
 from sqlalchemy import select
+from sqlalchemy.orm import joinedload, selectinload
 
 from app.database.database import session_scope
 from app.database.models import (
@@ -23,6 +24,15 @@ from app.services.installment_service import InstallmentService
 
 class OrderService:
     """Service layer za upravljanje narudžbama."""
+
+    @staticmethod
+    def has_active_campaign() -> bool:
+        """Vraća True ako postoji barem jedna aktivna kampanja."""
+        with session_scope() as session:
+            campaign = session.execute(
+                select(Campaign).where(Campaign.status == CampaignStatus.ACTIVE)
+            ).scalars().first()
+            return campaign is not None
 
     @staticmethod
     def list_customers(search_text: str = "") -> List[Customer]:
@@ -158,17 +168,17 @@ class OrderService:
         Vraća listu svih narudžbi, opciono filtrirano po kupcu.
         """
         with session_scope() as session:
-            stmt = select(Order).order_by(Order.order_date.desc())
+            stmt = (
+                select(Order)
+                .options(
+                    selectinload(Order.customer),
+                    selectinload(Order.installments),
+                )
+                .order_by(Order.order_date.desc())
+            )
             if customer_filter:
                 stmt = stmt.where(Order.customer_id == customer_filter)
-            orders = list(session.execute(stmt).scalars().all())
-
-            # Učitaj relacione podatke
-            for order in orders:
-                _ = order.customer  # eager load customer
-                _ = order.installments  # eager load installments
-
-            return orders
+            return list(session.execute(stmt).scalars().all())
 
     @staticmethod
     def get_order_details(order_id: int) -> Optional[Order]:
@@ -176,7 +186,12 @@ class OrderService:
         Vraća detalje narudžbe sa ratama.
         """
         with session_scope() as session:
-            order = session.get(Order, order_id)
-            if order:
-                session.refresh(order, ["customer", "installments"])
-            return order
+            stmt = (
+                select(Order)
+                .options(
+                    joinedload(Order.customer),
+                    selectinload(Order.installments),
+                )
+                .where(Order.id == order_id)
+            )
+            return session.execute(stmt).unique().scalar_one_or_none()

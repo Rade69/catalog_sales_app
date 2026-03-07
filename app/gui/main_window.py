@@ -21,6 +21,7 @@ from app.gui.pages.dashboard_page import DashboardPage
 from app.gui.pages.installments_page import InstallmentsPage
 from app.gui.pages.orders_page import OrdersPage
 from app.gui.pages.payments_page import PaymentsPage
+from app.gui.pages.price_list_page import PriceListPage
 from app.gui.pages.reports_page import ReportsPage
 from app.gui.styles import APP_STYLESHEET
 from app.utils.backup_manager import BackupManager
@@ -62,16 +63,14 @@ class MainWindow(QMainWindow):
 
         title = QLabel("Kataloška prodaja")
         title.setObjectName("SidebarTitle")
-        subtitle = QLabel("offline desktop koncept")
-        subtitle.setStyleSheet("color: #9ca3af; padding: 0 12px 12px 12px;")
         layout.addWidget(title)
-        layout.addWidget(subtitle)
 
         self.stack = QStackedWidget()
         self.pages = [
             ("🏠  Dashboard", DashboardPage()),
             ("👥  Kupci", CustomersPage()),
             ("📋  Kampanje", CampaignsPage()),
+            ("📒  Cjenovnik", PriceListPage()),
             ("🛒  Narudžbe", OrdersPage()),
             ("📅  Rate", InstallmentsPage()),
             ("💳  Uplate", PaymentsPage()),
@@ -79,13 +78,13 @@ class MainWindow(QMainWindow):
         ]
         # Čisti nazivi za title i subtitle (bez ikonica)
         self.page_names = [
-            "Dashboard", "Kupci", "Kampanje", "Narudžbe", "Rate", "Uplate", "Izvještaji"
+            "Dashboard", "Kupci", "Kampanje", "Cjenovnik", "Narudžbe", "Rate", "Uplate", "Izvještaji"
         ]
-        # Mapiranje za navigaciju: "orders" -> index 3
+        # Mapiranje za navigaciju: "orders" -> index 4
         self.page_index_map = {
-            "orders": 3,
-            "payments": 5,
-            "reports": 6,
+            "orders": 4,
+            "payments": 6,
+            "reports": 7,
         }
         self.nav_buttons = []
 
@@ -110,10 +109,6 @@ class MainWindow(QMainWindow):
         backup_btn.clicked.connect(self._do_backup)
         layout.addWidget(backup_btn)
 
-        footer = QLabel("Verzija 0.5 — Dashboard sa KPI-jevima")
-        footer.setStyleSheet("color: #9ca3af; padding: 8px 12px;")
-        footer.setWordWrap(True)
-        layout.addWidget(footer)
 
         return sidebar
 
@@ -153,6 +148,7 @@ class MainWindow(QMainWindow):
             "Dashboard": "Početni pregled modula i toka rada aplikacije.",
             "Kupci": "Baza kupaca, pretraga i pravi unos u SQLite bazu.",
             "Kampanje": "Mjesečni katalog i import cijena iz Excel fajla.",
+            "Cjenovnik": "Uvoz i pregled mjesečnog cjenovnika iz Excel fajla.",
             "Narudžbe": "Kupovina sa snapshot cijenom i automatskim ratama.",
             "Rate": "Plan otplate po narudžbi i praćenje kašnjenja.",
             "Uplate": "Evidencija svih uplata, uključujući djelimične uplate.",

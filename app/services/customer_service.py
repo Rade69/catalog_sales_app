@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from typing import Iterable
-
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 
 from app.database.database import session_scope
 from app.database.models import Customer
@@ -94,4 +92,4 @@ class CustomerService:
     @staticmethod
     def count_customers() -> int:
         with session_scope() as session:
-            return len(list(session.execute(select(Customer.id)).scalars().all()))
+            return session.execute(select(func.count()).select_from(Customer)).scalar_one()

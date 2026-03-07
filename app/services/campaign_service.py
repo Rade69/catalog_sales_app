@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.database.database import session_scope
 from app.database.models import (
@@ -131,6 +132,32 @@ class CampaignService:
             for c in campaigns:
                 session.expunge(c)
             return campaigns
+
+    @staticmethod
+    def list_campaign_products(campaign_id: int) -> List[CampaignPrice]:
+        """
+        Vraća listu CampaignPrice zapisa za datu kampanju,
+        sa eager-loadovanim Product objektom.
+        """
+        with session_scope() as session:
+            prices = list(
+                session.execute(
+                    select(CampaignPrice)
+                    .options(selectinload(CampaignPrice.product))
+                    .where(CampaignPrice.campaign_id == campaign_id)
+                    .order_by(CampaignPrice.id.asc())
+                ).scalars().all()
+            )
+            # Expunge da atributi ostanu dostupni van sesije (sprečava DetachedInstanceError)
+            for cp in prices:
+                product = cp.product  # osiguraj da je učitan dok je sesija aktivna
+                session.expunge(cp)
+                if product is not None:
+                    try:
+                        session.expunge(product)
+                    except Exception:
+                        pass  # već expunged
+            return prices
 
     # ---------------------------------------------------------------------
     # Product matching
@@ -402,6 +429,9 @@ class CampaignService:
             session.flush()
             campaign_id = campaign.id
             
+            # Skup product_id-eva već dodanih u ovu kampanju (sprečava duplikate)
+            added_product_ids: set = set()
+
             # Procesuiraj svaki red
             for row in rows:
                 try:
@@ -414,22 +444,37 @@ class CampaignService:
                         session_id=session_id,
                         excel_row_number=row.row_number
                     )
-                    
+
+                    # Preskoči duplikat — isti proizvod se pojavljuje više puta u fajlu
+                    if product.id in added_product_ids:
+                        error_log = ImportErrorLog(
+                            session_id=session_id,
+                            excel_row_number=row.row_number,
+                            field_name="product",
+                            error_message=f"Duplikat: '{row.product_name}' već dodan u ovu kampanju"
+                        )
+                        session.add(error_log)
+                        skipped_rows += 1
+                        continue
+
+                    added_product_ids.add(product.id)
+
                     if match.source == ProductMatchSource.NEW_PRODUCT:
                         new_products += 1
                     else:
                         matched_products += 1
-                    
+
                     # Kreiraj campaign_price
                     campaign_price = CampaignPrice(
                         campaign_id=campaign_id,
                         product_id=product.id,
                         regular_price=row.regular_price,
                         discount_price=row.discount_price,
+                        points=row.points,
                         status_label="akcija" if row.discount_price else None
                     )
                     session.add(campaign_price)
-                    
+
                 except Exception as e:
                     # Loguj grešku
                     error_log = ImportErrorLog(
@@ -461,13 +506,17 @@ class CampaignService:
     @staticmethod
     def get_import_session(session_id: int) -> Optional[ImportSession]:
         """
-        Dohvaća detalje import sesije.
+        Dohvaća detalje import sesije sa greškama i product matchovima.
         """
         with session_scope() as session:
-            imp_session = session.get(ImportSession, session_id)
-            if imp_session:
-                session.refresh(imp_session, ["errors", "product_matches"])
-            return imp_session
+            return session.execute(
+                select(ImportSession)
+                .options(
+                    selectinload(ImportSession.errors),
+                    selectinload(ImportSession.product_matches),
+                )
+                .where(ImportSession.id == session_id)
+            ).scalar_one_or_none()
 
     @staticmethod
     def list_import_sessions() -> List[ImportSession]:

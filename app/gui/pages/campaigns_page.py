@@ -4,7 +4,7 @@ from datetime import date
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
     QDateEdit,
     QFileDialog,
@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QSplitter,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -23,6 +24,40 @@ from PySide6.QtWidgets import (
 )
 
 from app.services.campaign_service import CampaignService
+
+
+class _ImportWorker(QThread):
+    """Pozadinski thread za import kampanje iz Excel fajla."""
+
+    finished = Signal(object)  # emits ImportResult
+    error = Signal(str)        # emits error message
+
+    def __init__(
+        self,
+        campaign_service: CampaignService,
+        excel_path: Path,
+        campaign_name: str,
+        start_date: date,
+        end_date: date,
+    ) -> None:
+        super().__init__()
+        self._service = campaign_service
+        self._excel_path = excel_path
+        self._campaign_name = campaign_name
+        self._start_date = start_date
+        self._end_date = end_date
+
+    def run(self) -> None:
+        try:
+            result = self._service.import_campaign_from_excel(
+                excel_path=self._excel_path,
+                campaign_name=self._campaign_name,
+                start_date=self._start_date,
+                end_date=self._end_date,
+            )
+            self.finished.emit(result)
+        except Exception as exc:
+            self.error.emit(str(exc))
 
 
 class CampaignsPage(QWidget):
@@ -33,6 +68,7 @@ class CampaignsPage(QWidget):
 
         self.campaign_service = CampaignService()
         self.selected_excel_path: Optional[Path] = None
+        self._import_worker: Optional[_ImportWorker] = None
 
         self._init_ui()
         self._connect_signals()
@@ -44,13 +80,23 @@ class CampaignsPage(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(16)
 
-        # --- Import sekcija ---
+        # --- Import sekcija (gore) ---
         import_card = self._create_import_card()
         root.addWidget(import_card)
 
-        # --- Tabela kampanja ---
+        # --- Horizontalni splitter: kampanje (lijevo) | proizvodi (desno) ---
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+
         table_card = self._create_table_card()
-        root.addWidget(table_card)
+        splitter.addWidget(table_card)
+
+        products_card = self._create_products_card()
+        splitter.addWidget(products_card)
+
+        splitter.setStretchFactor(0, 2)
+        splitter.setStretchFactor(1, 3)
+
+        root.addWidget(splitter, 1)
 
     def _create_import_card(self) -> QFrame:
         """Kreira karticu sa formom za import kampanje."""
@@ -194,11 +240,71 @@ class CampaignsPage(QWidget):
 
         return card
 
+    def _create_products_card(self) -> QFrame:
+        """Kreira karticu sa tabelom proizvoda za odabranu kampanju."""
+        card = QFrame()
+        card.setProperty("card", True)
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(18, 18, 18, 18)
+        layout.setSpacing(14)
+
+        # Header
+        header_row = QHBoxLayout()
+        self.products_title = QLabel("Proizvodi u kampanji")
+        self.products_title.setProperty("sectionTitle", True)
+        header_row.addWidget(self.products_title)
+        header_row.addStretch(1)
+
+        self.products_count_label = QLabel("")
+        self.products_count_label.setStyleSheet("color: #6b7280; font-size: 12px;")
+        header_row.addWidget(self.products_count_label)
+
+        layout.addLayout(header_row)
+
+        # Hint label
+        self.products_hint = QLabel("← Odaberi kampanju iz liste da vidiš proizvode")
+        self.products_hint.setStyleSheet("color: #9ca3af; font-style: italic; padding: 8px 0;")
+        layout.addWidget(self.products_hint)
+
+        # Pretraga
+        self.products_search = QLineEdit()
+        self.products_search.setPlaceholderText("🔍 Pretraži po nazivu ili brendu...")
+        self.products_search.textChanged.connect(self._filter_products_table)
+        self.products_search.hide()
+        layout.addWidget(self.products_search)
+
+        # Tabela proizvoda
+        self.products_table = QTableWidget()
+        self.products_table.setColumnCount(6)
+        self.products_table.setHorizontalHeaderLabels([
+            "Naziv proizvoda", "Brend", "Model", "Cijena (KM)", "Akcija (KM)", "Bod"
+        ])
+        ph = self.products_table.horizontalHeader()
+        ph.setSectionResizeMode(0, QHeaderView.Stretch)  # type: ignore[arg-type]
+        ph.setSectionResizeMode(1, QHeaderView.ResizeToContents)  # type: ignore[arg-type]
+        ph.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # type: ignore[arg-type]
+        ph.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # type: ignore[arg-type]
+        ph.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # type: ignore[arg-type]
+        ph.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # type: ignore[arg-type]
+        self.products_table.setSelectionBehavior(QTableWidget.SelectRows)  # type: ignore[arg-type]
+        self.products_table.setEditTriggers(QTableWidget.NoEditTriggers)  # type: ignore[arg-type]
+        self.products_table.setAlternatingRowColors(True)
+        self.products_table.verticalHeader().setVisible(False)
+        self.products_table.hide()
+
+        layout.addWidget(self.products_table, 1)
+
+        # Čuvamo sve učitane redove za filtering
+        self._all_product_rows: list = []
+
+        return card
+
     def _connect_signals(self) -> None:
         """Povezuje signale sa slotovima."""
         self.select_file_btn.clicked.connect(self.select_excel_file)
         self.import_btn.clicked.connect(self.import_campaign)
         self.refresh_btn.clicked.connect(self._load_campaigns)
+        self.table.itemSelectionChanged.connect(self._on_campaign_selected)
 
     def select_excel_file(self) -> None:
         """Otvara dijalog za izbor Excel fajla."""
@@ -215,7 +321,7 @@ class CampaignsPage(QWidget):
             self.file_path_label.setStyleSheet("color: #059669; font-weight: bold;")
 
     def import_campaign(self) -> None:
-        """Pokreće import kampanje."""
+        """Pokreće import kampanje u pozadinskom threadu."""
         # Validacija
         campaign_name = self.campaign_name_input.text().strip()
         if not campaign_name:
@@ -227,8 +333,8 @@ class CampaignsPage(QWidget):
             QMessageBox.warning(self, "Greška", "Excel fajl nije odabran.")
             return
 
-        start_date = self.start_date_edit.date().toPython()
-        end_date = self.end_date_edit.date().toPython()
+        start_date: date = self.start_date_edit.date().toPython()  # type: ignore[assignment]
+        end_date: date = self.end_date_edit.date().toPython()  # type: ignore[assignment]
 
         if start_date > end_date:
             QMessageBox.warning(
@@ -237,39 +343,52 @@ class CampaignsPage(QWidget):
             )
             return
 
-        # Pokreni import
-        try:
-            result = self.campaign_service.import_campaign_from_excel(
-                excel_path=self.selected_excel_path,
-                campaign_name=campaign_name,
-                start_date=start_date,
-                end_date=end_date
-            )
+        # Onemogući dugme i pokaži da je import u toku
+        self.import_btn.setEnabled(False)
+        self.import_btn.setText("Import u toku...")
+        self.summary_label.hide()
 
-            # Prikaži rezultat
-            self._show_import_summary(result)
+        # Pokreni import u pozadinskom threadu
+        self._import_worker = _ImportWorker(
+            campaign_service=self.campaign_service,
+            excel_path=self.selected_excel_path,
+            campaign_name=campaign_name,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        self._import_worker.finished.connect(self._on_import_finished)
+        self._import_worker.error.connect(self._on_import_error)
+        self._import_worker.start()
 
-            # Očisti formu
-            self.campaign_name_input.clear()
-            self.selected_excel_path = None
-            self.file_path_label.setText("Nije odabran fajl")
-            self.file_path_label.setStyleSheet("color: #6b7280; font-style: italic;")
+    def _on_import_finished(self, result: object) -> None:
+        """Poziva se kad import uspješno završi."""
+        self._reset_import_button()
 
-            # Osvježi tabelu
-            self._load_campaigns()
+        self._show_import_summary(result)
 
-        except FileNotFoundError:
-            QMessageBox.critical(
-                self, "Greška",
-                f"Excel fajl nije pronađen:\n{self.selected_excel_path}"
-            )
-        except ValueError as e:
-            QMessageBox.warning(self, "Greška", str(e))
-        except Exception as e:
-            QMessageBox.critical(
-                self, "Greška",
-                f"Neočekivana greška pri importu:\n{str(e)}"
-            )
+        # Očisti formu
+        self.campaign_name_input.clear()
+        self.selected_excel_path = None
+        self.file_path_label.setText("Nije odabran fajl")
+        self.file_path_label.setStyleSheet("color: #6b7280; font-style: italic;")
+
+        self._load_campaigns()
+
+    def _on_import_error(self, message: str) -> None:
+        """Poziva se kad import završi greškom."""
+        self._reset_import_button()
+
+        if "već postoji" in message:
+            QMessageBox.warning(self, "Greška", message)
+        elif "nije pronađen" in message.lower():
+            QMessageBox.critical(self, "Greška", f"Excel fajl nije pronađen:\n{message}")
+        else:
+            QMessageBox.critical(self, "Greška", f"Neočekivana greška pri importu:\n{message}")
+
+    def _reset_import_button(self) -> None:
+        """Vraća dugme za import u početno stanje."""
+        self.import_btn.setEnabled(True)
+        self.import_btn.setText("Importuj kampanju")
 
     def _show_import_summary(self, result) -> None:
         """Prikazuje rezime importa."""
@@ -325,6 +444,98 @@ class CampaignsPage(QWidget):
             self.table.setItem(row, 4, created_item)
 
         self.table.resizeColumnsToContents()
+
+    def _on_campaign_selected(self) -> None:
+        """Poziva se kad se odabere red u tabeli kampanja."""
+        row = self.table.currentRow()
+        if row < 0:
+            return
+        id_item = self.table.item(row, 0)
+        if id_item is None:
+            return
+        try:
+            campaign_id = int(id_item.text())
+        except ValueError:
+            return
+        name_item = self.table.item(row, 1)
+        campaign_name = name_item.text() if name_item else f"Kampanja #{campaign_id}"
+        self._load_campaign_products(campaign_id, campaign_name)
+
+    def _load_campaign_products(self, campaign_id: int, campaign_name: str) -> None:
+        """Učitava proizvode za odabranu kampanju u desni panel."""
+        prices = self.campaign_service.list_campaign_products(campaign_id)
+
+        self._all_product_rows = prices
+        self.products_hint.hide()
+        self.products_search.show()
+        self.products_table.show()
+        self.products_title.setText(f"Proizvodi — {campaign_name}")
+        self.products_count_label.setText(f"{len(prices)} proizvoda")
+        self.products_search.clear()
+        self._populate_products_table(prices)
+
+    def _populate_products_table(self, prices: list) -> None:
+        """Puni tabelu proizvoda sa listom CampaignPrice objekata."""
+        self.products_table.setRowCount(0)
+        self.products_table.setRowCount(len(prices))
+
+        for row, cp in enumerate(prices):
+            product = cp.product
+
+            # Naziv
+            self.products_table.setItem(row, 0, QTableWidgetItem(
+                product.name if product else "—"
+            ))
+
+            # Brend
+            self.products_table.setItem(row, 1, QTableWidgetItem(
+                product.brand or "" if product else ""
+            ))
+
+            # Model
+            self.products_table.setItem(row, 2, QTableWidgetItem(
+                product.model or "" if product else ""
+            ))
+
+            # Cijena
+            price_item = QTableWidgetItem(f"{cp.regular_price:.2f}")
+            price_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)  # type: ignore[arg-type]
+            self.products_table.setItem(row, 3, price_item)
+
+            # Akcijska cijena
+            if cp.discount_price is not None:
+                disc_item = QTableWidgetItem(f"{cp.discount_price:.2f}")
+                disc_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)  # type: ignore[arg-type]
+                self.products_table.setItem(row, 4, disc_item)
+            else:
+                self.products_table.setItem(row, 4, QTableWidgetItem(""))
+
+            # Bod
+            if cp.points is not None:
+                bod_item = QTableWidgetItem(str(cp.points))
+                bod_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)  # type: ignore[arg-type]
+                self.products_table.setItem(row, 5, bod_item)
+            else:
+                self.products_table.setItem(row, 5, QTableWidgetItem(""))
+
+        self.products_table.resizeColumnsToContents()
+
+    def _filter_products_table(self, text: str) -> None:
+        """Filtrira tabelu proizvoda prema tekstu pretrage."""
+        if not text.strip():
+            self._populate_products_table(self._all_product_rows)
+            return
+
+        query = text.strip().lower()
+        filtered = [
+            cp for cp in self._all_product_rows
+            if cp.product and (
+                query in (cp.product.name or "").lower()
+                or query in (cp.product.brand or "").lower()
+                or query in (cp.product.model or "").lower()
+            )
+        ]
+        self._populate_products_table(filtered)
 
     def on_activate(self) -> None:
         """Poziva se kada se stranica aktivira."""

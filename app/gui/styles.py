@@ -19,7 +19,7 @@ QMainWindow {
 }
 QPushButton[nav="true"] {
     background: transparent;
-    color: #d1d5db;
+    color: #f9fafb;
     border: none;
     text-align: left;
     padding: 12px 14px;

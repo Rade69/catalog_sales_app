@@ -443,6 +443,54 @@ class ImportProductMatch(TimestampMixin, Base):
 
 
 # -----------------------------------------------------------------------------
+# Cjenovnik (monthly price list)
+# -----------------------------------------------------------------------------
+
+
+class PriceList(TimestampMixin, Base):
+    __tablename__ = "price_lists"
+    __table_args__ = (
+        UniqueConstraint("name", name="uq_price_lists_name"),
+        Index("ix_price_lists_name", "name"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    source_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    items: Mapped[list[PriceListItem]] = relationship(
+        back_populates="price_list", cascade="all, delete-orphan"
+    )
+
+    def __repr__(self) -> str:
+        return f"<PriceList id={self.id} name={self.name!r}>"
+
+
+class PriceListItem(Base):
+    __tablename__ = "price_list_items"
+    __table_args__ = (
+        Index("ix_price_list_items_price_list_id", "price_list_id"),
+        Index("ix_price_list_items_name", "name"),
+        Index("ix_price_list_items_brand", "brand"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    price_list_id: Mapped[int] = mapped_column(ForeignKey("price_lists.id"), nullable=False)
+    row_number: Mapped[Optional[int]] = mapped_column(Integer)
+    supplier_code: Mapped[Optional[str]] = mapped_column(String(100))
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    brand: Mapped[Optional[str]] = mapped_column(String(120))
+    regular_price: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2))
+    discount_price: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2))
+    points: Mapped[Optional[int]] = mapped_column(Integer)
+
+    price_list: Mapped[PriceList] = relationship(back_populates="items")
+
+    def __repr__(self) -> str:
+        return f"<PriceListItem id={self.id} name={self.name!r}>"
+
+
+# -----------------------------------------------------------------------------
 # Helper
 # -----------------------------------------------------------------------------
 

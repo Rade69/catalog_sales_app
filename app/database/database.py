@@ -35,7 +35,8 @@ def session_scope():
         yield session
         session.commit()
     except Exception:
-        session.rollback()
+        if session.is_active:
+            session.rollback()
         raise
     finally:
         session.close()
