@@ -22,15 +22,20 @@ app/
 ### Ključni Fajlovi
 - `run.py` - Ulazna tačka
 - `app/database/models.py` - SQLAlchemy modeli (datetime.now(UTC))
-- `app/gui/main_window.py` - Glavni prozor (sidebar, status bar, backup)
+- `app/gui/main_window.py` - Glavni prozor (sidebar, status bar, backup) — 8 tabova
 - `app/gui/pages/dashboard_page.py` - Dashboard (KPI, grafovi, tabele, brze akcije)
+- `app/gui/pages/campaigns_page.py` - Kampanje: import Excel, pregled proizvoda kampanje
+- `app/gui/pages/orders_page.py` - Narudžbe: dropdown kampanja/proizvoda, auto-fill cijene
+- `app/gui/pages/price_list_page.py` - Cjenovnik: import, pregled, pretraga, brisanje
 - `app/gui/widgets/status_badge.py` - Status badge widgeti
 - `app/services/dashboard_service.py` - Dashboard KPI-jevi (N+1 query fix)
-- `app/services/campaign_service.py` - Import kampanja
+- `app/services/campaign_service.py` - Import kampanja, list_campaign_products (expunge fix)
+- `app/services/price_list_service.py` - Import/pregled cjenovnika iz Excel-a
 - `app/services/order_service.py` - Narudžbe (koristi InstallmentService)
 - `app/services/installment_service.py` - Rate (sync_statuses)
 - `app/services/history_import_service.py` - Import istorije
 - `app/services/payment_service.py` - Uplate (validacija preplate)
+- `app/importers/excel_importer.py` - Excel parser: _detect_header_row, no-space matching
 
 ### Dashboard KPI-jevi
 1. **Ukupan broj kupaca** - COUNT(Customer)
