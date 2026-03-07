@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
@@ -15,6 +16,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.gui.table_helpers import style_table, create_numeric_item
 from app.services.campaign_service import CampaignService
 
 
@@ -100,11 +102,7 @@ class CampaignsPage(QWidget):
         header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # type: ignore[arg-type]  # End
         header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # type: ignore[arg-type]  # Created
 
-        self.table.setSelectionBehavior(QTableWidget.SelectRows)  # type: ignore[arg-type]
-        self.table.setSelectionMode(QTableWidget.SingleSelection)  # type: ignore[arg-type]
-        self.table.setEditTriggers(QTableWidget.NoEditTriggers)  # type: ignore[arg-type]
-        self.table.setAlternatingRowColors(True)
-        self.table.verticalHeader().setVisible(False)
+        style_table(self.table)
 
         layout.addWidget(self.table)
 
@@ -156,10 +154,7 @@ class CampaignsPage(QWidget):
         ph.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # type: ignore[arg-type]
         ph.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # type: ignore[arg-type]
         ph.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # type: ignore[arg-type]
-        self.products_table.setSelectionBehavior(QTableWidget.SelectRows)  # type: ignore[arg-type]
-        self.products_table.setEditTriggers(QTableWidget.NoEditTriggers)  # type: ignore[arg-type]
-        self.products_table.setAlternatingRowColors(True)
-        self.products_table.verticalHeader().setVisible(False)
+        style_table(self.products_table)
         self.products_table.hide()
 
         layout.addWidget(self.products_table, 1)
@@ -260,22 +255,19 @@ class CampaignsPage(QWidget):
             ))
 
             # Cijena
-            price_item = QTableWidgetItem(f"{cp.regular_price:.2f}")
-            price_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)  # type: ignore[arg-type]
-            self.products_table.setItem(row, 3, price_item)
+            self.products_table.setItem(row, 3, create_numeric_item(cp.regular_price))
 
             # Akcijska cijena
             if cp.discount_price is not None:
-                disc_item = QTableWidgetItem(f"{cp.discount_price:.2f}")
-                disc_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)  # type: ignore[arg-type]
+                disc_item = create_numeric_item(cp.discount_price)
+                disc_item.setForeground(QColor("#059669"))
                 self.products_table.setItem(row, 4, disc_item)
             else:
                 self.products_table.setItem(row, 4, QTableWidgetItem(""))
 
             # Bod
             if cp.points is not None:
-                bod_item = QTableWidgetItem(str(cp.points))
-                bod_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)  # type: ignore[arg-type]
+                bod_item = create_numeric_item(cp.points)
                 self.products_table.setItem(row, 5, bod_item)
             else:
                 self.products_table.setItem(row, 5, QTableWidgetItem(""))
