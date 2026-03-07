@@ -118,6 +118,8 @@ class PriceListService:
         Koristi _detect_header_row() za automatsko pronalaženje header reda
         i mapira kolone case-insensitivno, uključujući "N A Z I V" stil.
 
+        Prepoznaje redove sa nazivom firme/dobavljača i povezuje ih sa proizvodima ispod.
+
         Vraća: (uvezeno, preskočeno)
         Raises: ValueError ako fajl ne sadrži kolonu za naziv.
                 ValueError ako cjenovnik s tim imenom već postoji.
@@ -142,6 +144,9 @@ class PriceListService:
         imported = 0
         skipped = 0
 
+        # Trenutni dobavljač/firma - ažurira se kad se naiđe na red sa nazivom firme
+        current_supplier: Optional[str] = None
+
         with session_scope() as session:
             # Provjeri duplikat
             existing = session.execute(
@@ -160,10 +165,48 @@ class PriceListService:
                     skipped += 1
                     continue
 
+                name_str = str(raw_name).strip()
+
                 def get_val(field: str):
                     col = col_mapping.get(field)
                     return row.get(col) if col else None
 
+                # Provjeri da li je ovo red sa nazivom firme
+                # Firma red ima: naziv, ali NEMA šifru artikla i NEMA pravu cijenu
+                supplier_code_val = get_val("supplier_code")
+                regular_price_val = get_val("regular_price")
+                brand_val = get_val("brand")
+                points_val = get_val("points")
+
+                # Helper funkcija da provjeri da li je vrijednost "prazna" ili header
+                def is_empty_or_header(val) -> bool:
+                    if val is None:
+                        return True
+                    s = str(val).strip().lower()
+                    # Prazno, nan, ili header oznake poput "km", "bod", "status"
+                    if s in ("", "nan", "km", "bod", "bod.", "status", "cijena", "price"):
+                        return True
+                    return False
+
+                # Red je naziv firme ako:
+                # 1. Ima naziv
+                # 2. NEMA šifru artikla (ili je NaN/header)
+                # 3. NEMA cijenu (ili je NaN/header poput "KM")
+                # 4. NEMA brand (ili je NaN)
+                is_supplier_row = (
+                    name_str
+                    and is_empty_or_header(supplier_code_val)
+                    and is_empty_or_header(regular_price_val)
+                    and (brand_val is None or str(brand_val).strip() in ("", "nan"))
+                )
+
+                if is_supplier_row:
+                    # Ovo je naziv firme/dobavljača
+                    current_supplier = name_str
+                    skipped += 1  # Ne ubrajamo kao proizvod
+                    continue
+
+                # Ovo je običan proizvod - dodijeli trenutnu firmu
                 item = PriceListItem(
                     price_list_id=price_list.id,
                     row_number=_safe_int(get_val("row_number")) or (int(idx) + 1),
@@ -172,12 +215,13 @@ class PriceListService:
                         if get_val("supplier_code") and str(get_val("supplier_code")).strip() not in ("", "nan")
                         else None
                     ),
-                    name=str(raw_name).strip(),
+                    name=name_str,
                     brand=(
                         str(get_val("brand")).strip()
                         if get_val("brand") and str(get_val("brand")).strip() not in ("", "nan")
                         else None
                     ),
+                    supplier=current_supplier,  # Dodijeli trenutnu firmu
                     regular_price=_safe_decimal(get_val("regular_price")),
                     discount_price=_safe_decimal(get_val("discount_price")),
                     points=_safe_int(get_val("points")),

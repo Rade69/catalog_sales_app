@@ -186,8 +186,11 @@ def _detect_header_row(path: Path) -> int:
     """
     Traži red koji sadrži header kolona u Excel fajlu.
 
-    Skenira prvih 15 redova i pronalazi prvi koji ima bar 2 prepoznate
-    ključne riječi (naziv, cijena, šifra, brend, bod...).
+    Skenira prvih 15 redova i pronalazi prvi koji ima bar 3 prepoznate
+    ključne riječi (naziv, cijena, šifra, brend, bod, R.br...).
+
+    Za cjenovnike sa strukturom "R.br | Šifra | NAZIV | BOD | KM",
+    traži se barem 3 matcha od ovih kolona.
 
     Returns:
         Indeks header reda (0-based), default 0.
@@ -201,25 +204,32 @@ def _detect_header_row(path: Path) -> int:
             all_keywords.add(norm)
             all_keywords.add(norm.replace(" ", ""))
 
+    # Dodatne ključne riječi za header
+    header_keywords = {"r.br", "rbr", "rednibroj", "sifra", "šifra", "naziv", "name", "km", "cijena", "price", "bod", "points"}
+
     for i, row in df_probe.iterrows():
         cell_values = [str(v).strip() for v in row.values if not pd.isna(v) and str(v).strip()]
         if len(cell_values) < 2:
             continue
 
         matches = 0
+        header_matches = 0
         for cell in cell_values:
             norm = normalize_product_name(cell)
             nospace = norm.replace(" ", "")
             if norm in all_keywords or nospace in all_keywords:
                 matches += 1
-                continue
+            # Provjeri specifične header keywords
+            if norm in header_keywords or nospace in header_keywords:
+                header_matches += 1
             # Partial match
             for kw in all_keywords:
                 if kw and (kw in norm or norm in kw or kw in nospace or nospace in kw):
                     matches += 1
                     break
 
-        if matches >= 2:
+        # Traži barem 3 matcha ILI barem 2 header-specific matcha
+        if matches >= 3 or header_matches >= 2:
             return int(i)  # type: ignore[arg-type]
 
     return 0

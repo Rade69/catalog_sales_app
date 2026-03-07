@@ -12,10 +12,12 @@ QMainWindow {
     background: #111827;
 }
 #SidebarTitle {
-    color: white;
+    color: #111827;
     font-size: 18px;
     font-weight: 700;
     padding: 10px 12px;
+    background: #f3f4f6;
+    border-radius: 10px;
 }
 QPushButton[nav="true"] {
     background: transparent;

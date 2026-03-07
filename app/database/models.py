@@ -472,6 +472,7 @@ class PriceListItem(Base):
         Index("ix_price_list_items_price_list_id", "price_list_id"),
         Index("ix_price_list_items_name", "name"),
         Index("ix_price_list_items_brand", "brand"),
+        Index("ix_price_list_items_supplier", "supplier"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -480,6 +481,7 @@ class PriceListItem(Base):
     supplier_code: Mapped[Optional[str]] = mapped_column(String(100))
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     brand: Mapped[Optional[str]] = mapped_column(String(120))
+    supplier: Mapped[Optional[str]] = mapped_column(String(200))  # Naziv firme/dobavljača
     regular_price: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2))
     discount_price: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2))
     points: Mapped[Optional[int]] = mapped_column(Integer)

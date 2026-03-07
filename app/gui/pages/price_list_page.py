@@ -195,9 +195,9 @@ class PriceListPage(QWidget):
 
         # Tabela stavki
         self.items_table = QTableWidget()
-        self.items_table.setColumnCount(6)
+        self.items_table.setColumnCount(7)
         self.items_table.setHorizontalHeaderLabels([
-            "Rb.", "Naziv", "Šifra", "Cijena (KM)", "Akcija (KM)", "Bod"
+            "Rb.", "Firma", "Naziv", "Šifra", "Cijena (KM)", "Akcija (KM)", "Bod"
         ])
 
         header = self.items_table.horizontalHeader()
@@ -414,18 +414,23 @@ class PriceListPage(QWidget):
             rb.setTextAlignment(Qt.AlignCenter)
             self.items_table.setItem(i, 0, rb)
 
+            # Firma
+            supplier_item = QTableWidgetItem(item.supplier or "")
+            supplier_item.setTextAlignment(Qt.AlignCenter)
+            self.items_table.setItem(i, 1, supplier_item)
+
             # Naziv
-            self.items_table.setItem(i, 1, QTableWidgetItem(item.name))
+            self.items_table.setItem(i, 2, QTableWidgetItem(item.name))
 
             # Šifra
-            self.items_table.setItem(i, 2, QTableWidgetItem(item.supplier_code or ""))
+            self.items_table.setItem(i, 3, QTableWidgetItem(item.supplier_code or ""))
 
             # Cijena
             price_item = QTableWidgetItem(
                 f"{item.regular_price:.2f}" if item.regular_price is not None else "—"
             )
             price_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            self.items_table.setItem(i, 3, price_item)
+            self.items_table.setItem(i, 4, price_item)
 
             # Akcija — zelena boja ako postoji
             disc_item = QTableWidgetItem(
@@ -434,23 +439,25 @@ class PriceListPage(QWidget):
             disc_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             if item.discount_price is not None:
                 disc_item.setForeground(QColor("#059669"))
-            self.items_table.setItem(i, 4, disc_item)
+            self.items_table.setItem(i, 5, disc_item)
 
             # Bod
             bod_item = QTableWidgetItem(str(item.points) if item.points is not None else "")
             bod_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            self.items_table.setItem(i, 5, bod_item)
+            self.items_table.setItem(i, 6, bod_item)
 
     def _filter_items(self, text: str) -> None:
         """Filtrira redove tabele bez DB upita — samo sakriva/prikazuje."""
         query = text.lower().strip()
         for row in range(self.items_table.rowCount()):
-            name_item = self.items_table.item(row, 1)
-            code_item = self.items_table.item(row, 2)
+            name_item = self.items_table.item(row, 2)  # Naziv je sada kolona 2
+            code_item = self.items_table.item(row, 3)  # Šifra je sada kolona 3
+            supplier_item = self.items_table.item(row, 1)  # Firma je kolona 1
             visible = (
                 not query
                 or (name_item and query in name_item.text().lower())
                 or (code_item and query in code_item.text().lower())
+                or (supplier_item and query in supplier_item.text().lower())
             )
             self.items_table.setRowHidden(row, not visible)
 
