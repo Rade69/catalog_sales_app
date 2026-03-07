@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 
+from app.gui.table_helpers import style_table, create_numeric_item
 from app.services.campaign_service import CampaignService
 from app.services.order_service import OrderService
 
@@ -163,9 +164,7 @@ class OrdersPage(QWidget):
         header.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # Datum
         header.setSectionResizeMode(6, QHeaderView.ResizeToContents)  # Status
 
-        self.table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.table.setAlternatingRowColors(True)
+        style_table(self.table)
 
         # Dvostruki klik za detalje
         self.table.doubleClicked.connect(self._show_order_details)
@@ -276,9 +275,7 @@ class OrdersPage(QWidget):
             self.table.setItem(row, 2, QTableWidgetItem(order.product_name_snapshot))
 
             # Cijena
-            price_item = QTableWidgetItem(f"{order.total_price_snapshot:.2f} KM")
-            price_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            self.table.setItem(row, 3, price_item)
+            self.table.setItem(row, 3, create_numeric_item(order.total_price_snapshot, " KM"))
 
             # Broj rata
             installments_item = QTableWidgetItem(f"{order.installments_count}")

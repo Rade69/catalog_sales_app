@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.gui.table_helpers import style_table, create_numeric_item, show_empty_state
 from app.services.report_service import ReportService
 
 
@@ -108,10 +109,7 @@ class ReportsPage(QWidget):
         self.table.setHorizontalHeaderLabels([
             "Datum", "Kupac", "Artikal", "Kampanja", "Rata", "Iznos", "Napomena"
         ])
-        self.table.verticalHeader().setVisible(False)
-        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.table.setShowGrid(False)
+        style_table(self.table)
         self.table.horizontalHeader().setStretchLastSection(True)
         table_layout.addWidget(self.table)
 
@@ -134,6 +132,11 @@ class ReportsPage(QWidget):
         self.count_label.setText(f"Broj evidentiranih uplata: {report.payments_count}")
 
         df = report.dataframe
+        
+        if len(df.index) == 0:
+            show_empty_state(self.table, "Nema podataka za odabrani period")
+            return
+        
         self.table.setRowCount(len(df.index))
         for row_index, (_, row) in enumerate(df.iterrows()):
             values = [
@@ -142,14 +145,16 @@ class ReportsPage(QWidget):
                 row.get("Artikal", ""),
                 row.get("Kampanja", ""),
                 row.get("Rata", ""),
-                row.get("Iznos uplate (KM)", ""),
                 row.get("Napomena", ""),
             ]
             for column_index, value in enumerate(values):
                 item = QTableWidgetItem(str(value))
-                if column_index == 5:
-                    item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
                 self.table.setItem(row_index, column_index, item)
+            
+            # Numerička kolona
+            iznos = row.get("Iznos uplate (KM)", 0)
+            self.table.setItem(row_index, 5, create_numeric_item(float(iznos) if iznos else 0, " KM"))
+            
         self.table.resizeColumnsToContents()
 
     def export_report(self) -> None:

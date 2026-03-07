@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.gui.table_helpers import style_table, create_numeric_item, show_empty_state
 from app.services.payment_service import PaymentService
 
 
@@ -58,11 +59,7 @@ class PaymentsPage(QWidget):
         self.installment_table.setHorizontalHeaderLabels([
             'Kupac', 'Artikal', 'Rata', 'Dospijeće', 'Status', 'Iznos', 'Preostalo'
         ])
-        self.installment_table.verticalHeader().setVisible(False)
-        self.installment_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.installment_table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.installment_table.setSelectionMode(QTableWidget.SingleSelection)
-        self.installment_table.setShowGrid(False)
+        style_table(self.installment_table)
         self.installment_table.horizontalHeader().setStretchLastSection(True)
         self.installment_table.itemSelectionChanged.connect(self.populate_installment_details)
         left_layout.addWidget(self.installment_table, 1)
@@ -134,11 +131,7 @@ class PaymentsPage(QWidget):
         self.payments_table.setHorizontalHeaderLabels([
             'Datum', 'Kupac', 'Artikal', 'Kampanja', 'Rata', 'Iznos', 'Napomena'
         ])
-        self.payments_table.verticalHeader().setVisible(False)
-        self.payments_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.payments_table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.payments_table.setSelectionMode(QTableWidget.SingleSelection)
-        self.payments_table.setShowGrid(False)
+        style_table(self.payments_table)
         self.payments_table.horizontalHeader().setStretchLastSection(True)
         self.payments_table.itemSelectionChanged.connect(self.capture_payment_selection)
         right_layout.addWidget(self.payments_table, 1)
@@ -170,6 +163,11 @@ class PaymentsPage(QWidget):
 
     def load_installments(self) -> None:
         rows = PaymentService.build_installment_lookup(self.installment_search.text(), only_open=True)
+        
+        if not rows:
+            show_empty_state(self.installment_table, "Nema rata za prikaz")
+            return
+        
         self.installment_table.setRowCount(len(rows))
         for row_index, row in enumerate(rows):
             values = [
@@ -178,15 +176,16 @@ class PaymentsPage(QWidget):
                 f'{row.installment_number}/{row.installments_count}',
                 row.due_date.strftime('%d.%m.%Y'),
                 self.translate_status(row.status),
-                f'{row.amount:.2f} KM',
-                f'{row.remaining_amount:.2f} KM',
             ]
             for column_index, value in enumerate(values):
                 item = QTableWidgetItem(str(value))
                 item.setData(Qt.UserRole, row.installment_id)
-                if column_index in (5, 6):
-                    item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
                 self.installment_table.setItem(row_index, column_index, item)
+            
+            # Numeričke kolone
+            self.installment_table.setItem(row_index, 5, create_numeric_item(row.amount, " KM"))
+            self.installment_table.setItem(row_index, 6, create_numeric_item(row.remaining_amount, " KM"))
+            
         self.installment_table.resizeColumnsToContents()
 
     def populate_installment_details(self) -> None:
@@ -239,6 +238,11 @@ class PaymentsPage(QWidget):
 
     def load_payments(self) -> None:
         payments = PaymentService.list_payments(self.payment_search.text())
+        
+        if not payments:
+            show_empty_state(self.payments_table, "Nema uplata za prikaz")
+            return
+        
         self.payments_table.setRowCount(len(payments))
         for row_index, payment in enumerate(payments):
             installment = payment.installment
@@ -249,15 +253,16 @@ class PaymentsPage(QWidget):
                 order.product_name_snapshot,
                 order.campaign.name,
                 f'{installment.installment_number}/{order.installments_count}',
-                f'{Decimal(str(payment.amount)):.2f} KM',
                 payment.note or '',
             ]
             for column_index, value in enumerate(values):
                 item = QTableWidgetItem(str(value))
                 item.setData(Qt.UserRole, payment.id)
-                if column_index == 5:
-                    item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
                 self.payments_table.setItem(row_index, column_index, item)
+            
+            # Numerička kolona
+            self.payments_table.setItem(row_index, 5, create_numeric_item(payment.amount, " KM"))
+            
         self.payments_table.resizeColumnsToContents()
 
     def capture_payment_selection(self) -> None:
