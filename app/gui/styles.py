@@ -10,6 +10,7 @@ QMainWindow {
 }
 #Sidebar {
     background: #111827;
+    border-radius: 16px;
 }
 #SidebarTitle {
     color: #111827;
@@ -18,24 +19,6 @@ QMainWindow {
     padding: 10px 12px;
     background: #f3f4f6;
     border-radius: 10px;
-}
-QPushButton[nav="true"] {
-    background: transparent;
-    color: #f9fafb;
-    border: none;
-    text-align: left;
-    padding: 12px 14px;
-    border-radius: 10px;
-    font-size: 14px;
-    font-weight: 600;
-}
-QPushButton[nav="true"]:hover {
-    background: #1f2937;
-    color: white;
-}
-QPushButton[nav="true"][active="true"] {
-    background: #2563eb;
-    color: white;
 }
 #TopBar {
     background: white;
@@ -57,16 +40,6 @@ QFrame[card="true"] {
     background: white;
     border: 1px solid #e5e7eb;
     border-radius: 18px;
-}
-QLabel[kpiTitle="true"] {
-    color: #6b7280;
-    font-size: 12px;
-    font-weight: 600;
-}
-QLabel[kpiValue="true"] {
-    color: #111827;
-    font-size: 28px;
-    font-weight: 800;
 }
 QLabel[sectionTitle="true"] {
     font-size: 16px;

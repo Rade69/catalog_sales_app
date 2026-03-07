@@ -1,6 +1,7 @@
 from pathlib import Path
 from datetime import datetime
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -15,6 +16,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.database.database import DATABASE_URL
+from app.gui.icons import get_icon_svg
 from app.gui.pages.campaigns_page import CampaignsPage
 from app.gui.pages.customers_page import CustomersPage
 from app.gui.pages.dashboard_page import DashboardPage
@@ -46,10 +48,10 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(content, 1)
 
         self.setCentralWidget(root)
-        
+
         # Statusna traka
         self._setup_status_bar()
-        
+
         self.switch_page(0, self.nav_buttons[0])
 
     def _build_sidebar(self) -> QWidget:
@@ -61,56 +63,181 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(14, 14, 14, 14)
         layout.setSpacing(10)
 
+        # Naslov
         title = QLabel("Kataloška prodaja")
         title.setObjectName("SidebarTitle")
         layout.addWidget(title)
 
+        # Navigacija
         self.stack = QStackedWidget()
         self.pages = [
-            ("🏠  Dashboard", DashboardPage()),
-            ("👥  Kupci", CustomersPage()),
-            ("📋  Kampanje", CampaignsPage()),
-            ("📒  Cjenovnik", PriceListPage()),
-            ("🛒  Narudžbe", OrdersPage()),
-            ("📅  Rate", InstallmentsPage()),
-            ("💳  Uplate", PaymentsPage()),
-            ("📊  Izvještaji", ReportsPage()),
+            ("Dashboard", DashboardPage()),
+            ("Kupci", CustomersPage()),
+            ("Narudžbe", OrdersPage()),
+            ("Kampanje", CampaignsPage()),
+            ("Uplate", PaymentsPage()),
+            ("Izvještaji", ReportsPage()),
+            ("Postavke", self._create_settings_page()),
         ]
-        # Čisti nazivi za title i subtitle (bez ikonica)
         self.page_names = [
-            "Dashboard", "Kupci", "Kampanje", "Cjenovnik", "Narudžbe", "Rate", "Uplate", "Izvještaji"
+            "Dashboard", "Kupci", "Narudžbe", "Kampanje", "Uplate", "Izvještaji", "Postavke"
         ]
-        # Mapiranje za navigaciju: "orders" -> index 4
         self.page_index_map = {
-            "orders": 4,
-            "payments": 6,
-            "reports": 7,
+            "orders": 2,
+            "payments": 4,
+            "reports": 5,
         }
         self.nav_buttons = []
+        self.nav_icons = ["dashboard", "customers", "orders", "campaigns", "payments", "reports", "settings"]
 
         for index, (name, page) in enumerate(self.pages):
-            btn = QPushButton(name)
-            btn.setProperty("nav", True)
-            btn.clicked.connect(lambda checked=False, idx=index, button=btn: self.switch_page(idx, button))
+            btn = self._create_nav_button(name, index, self.nav_icons[index])
             layout.addWidget(btn)
             self.nav_buttons.append(btn)
-            self.stack.addWidget(page)
             
+            # Dodaj stranicu u stack (osim Postavke koji je dummy)
+            if index < 6:
+                self.stack.addWidget(page)
+            else:
+                self.stack.addWidget(self._create_settings_page())
+
             # Poveži navigate_to signal sa DashboardPage
-            if name.endswith("Dashboard"):
+            if name == "Dashboard":
                 page.navigate_to.connect(self._navigate_from_dashboard)
 
         layout.addStretch(1)
 
-        # Backup dugme
-        backup_btn = QPushButton("💾 Backup baze")
-        backup_btn.setProperty("secondary", True)
-        backup_btn.setToolTip("Napravi backup SQLite baze u /backup/ folder")
-        backup_btn.clicked.connect(self._do_backup)
-        layout.addWidget(backup_btn)
-
-
         return sidebar
+
+    def _create_nav_button(self, text: str, index: int, icon_name: str) -> QPushButton:
+        """Kreira navigacijsko dugme sa ikonicom."""
+        btn = QPushButton()
+        btn.setProperty("nav", True)
+        btn.setFixedHeight(44)
+        btn.setCursor(Qt.PointingHandCursor)
+        
+        # Kreiraj layout za dugme (ikonica + tekst)
+        layout = QHBoxLayout(btn)
+        layout.setContentsMargins(12, 8, 12, 8)
+        layout.setSpacing(12)
+        
+        # Ikonica
+        icon_label = QLabel()
+        icon_label.setFixedSize(20, 20)
+        icon_svg = get_icon_svg(icon_name, "#9ca3af")
+        icon_label.setStyleSheet(f"""
+            QLabel {{
+                background-image: url(data:image/svg+xml;utf8,{icon_svg.replace('#', '%23')});
+                background-repeat: no-repeat;
+                background-position: center;
+            }}
+        """)
+        layout.addWidget(icon_label)
+        
+        # Tekst
+        text_label = QLabel(text)
+        text_label.setStyleSheet("color: #f9fafb; font-size: 14px; font-weight: 600;")
+        layout.addWidget(text_label, 1)
+        
+        layout.addStretch(1)
+        
+        # Sačuvaj reference za ažuriranje
+        btn._icon_label = icon_label
+        btn._text_label = text_label
+        btn._icon_name = icon_name
+        
+        # Connect
+        btn.clicked.connect(lambda checked=False, idx=index, button=btn: self.switch_page(idx, button))
+        
+        return btn
+
+    def _update_nav_button_style(self, btn: QPushButton, is_active: bool) -> None:
+        """Ažurira stil navigacijskog dugmeta."""
+        if is_active:
+            # Aktivno stanje: plava pozadina, bijeli tekst, bold, lijeva plava linija
+            btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #2563eb;
+                    border: none;
+                    border-left: 4px solid #60a5fa;
+                    border-radius: 8px;
+                    padding-left: 8px;
+                }
+                QLabel {
+                    color: white;
+                    font-weight: 700;
+                }
+            """)
+            # Ažuriraj ikonicu bijelom bojom
+            icon_svg = get_icon_svg(btn._icon_name, "#ffffff")
+            btn._icon_label.setStyleSheet(f"""
+                QLabel {{
+                    background-image: url(data:image/svg+xml;utf8,{icon_svg.replace('#', '%23')});
+                    background-repeat: no-repeat;
+                    background-position: center;
+                }}
+            """)
+        else:
+            # Neaktivno stanje
+            btn.setStyleSheet("""
+                QPushButton {
+                    background-color: transparent;
+                    border: none;
+                    border-left: 4px solid transparent;
+                    border-radius: 8px;
+                    padding-left: 12px;
+                }
+                QPushButton:hover {
+                    background-color: #1f2937;
+                }
+                QLabel {
+                    color: #f9fafb;
+                    font-weight: 600;
+                }
+            """)
+            # Ažuriraj ikonicu sivom bojom
+            icon_svg = get_icon_svg(btn._icon_name, "#9ca3af")
+            btn._icon_label.setStyleSheet(f"""
+                QLabel {{
+                    background-image: url(data:image/svg+xml;utf8,{icon_svg.replace('#', '%23')});
+                    background-repeat: no-repeat;
+                    background-position: center;
+                }}
+            """)
+
+    def _create_settings_page(self) -> QWidget:
+        """Kreira stranicu Postavke (dummy za sada)."""
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        
+        title = QLabel("Postavke")
+        title.setProperty("sectionTitle", True)
+        layout.addWidget(title)
+        
+        # Backup sekcija
+        backup_card = QFrame()
+        backup_card.setProperty("card", True)
+        backup_layout = QVBoxLayout(backup_card)
+        backup_layout.setContentsMargins(18, 18, 18, 18)
+        
+        backup_title = QLabel("Backup baze podataka")
+        backup_title.setProperty("sectionTitle", True)
+        backup_layout.addWidget(backup_title)
+        
+        backup_desc = QLabel("Kreiraj sigurnosnu kopiju baze podataka.")
+        backup_desc.setStyleSheet("color: #6b7280;")
+        backup_layout.addWidget(backup_desc)
+        
+        backup_btn = QPushButton("💾 Kreiraj backup sada")
+        backup_btn.setProperty("primary", True)
+        backup_btn.setFixedWidth(200)
+        backup_btn.clicked.connect(self._do_backup)
+        backup_layout.addWidget(backup_btn)
+        
+        layout.addWidget(backup_card)
+        layout.addStretch(1)
+        
+        return page
 
     def _build_content(self) -> QWidget:
         wrapper = QWidget()
@@ -142,30 +269,30 @@ class MainWindow(QMainWindow):
 
     def switch_page(self, index: int, button: QPushButton) -> None:
         self.stack.setCurrentIndex(index)
-        # Koristi čisti naziv bez ikonice za title
         self.page_title.setText(self.page_names[index])
         subtitles = {
             "Dashboard": "Početni pregled modula i toka rada aplikacije.",
             "Kupci": "Baza kupaca, pretraga i pravi unos u SQLite bazu.",
-            "Kampanje": "Mjesečni katalog i import cijena iz Excel fajla.",
-            "Cjenovnik": "Uvoz i pregled mjesečnog cjenovnika iz Excel fajla.",
             "Narudžbe": "Kupovina sa snapshot cijenom i automatskim ratama.",
-            "Rate": "Plan otplate po narudžbi i praćenje kašnjenja.",
+            "Kampanje": "Mjesečni katalog i import cijena iz Excel fajla.",
             "Uplate": "Evidencija svih uplata, uključujući djelimične uplate.",
             "Izvještaji": "Mjesečni iznos uplaćenih sredstava i Excel eksport.",
+            "Postavke": "Konfiguracija sistema i backup baze podataka.",
         }
         self.page_subtitle.setText(subtitles.get(self.page_names[index], ""))
-        page_widget = self.pages[index][1]
+        
+        # Pozovi on_activate ako postoji
+        page_widget = self.stack.currentWidget()
         if hasattr(page_widget, "on_activate"):
             page_widget.on_activate()
+        
         self._update_last_refresh()
-        self._set_active_button(button)
-
-    def _set_active_button(self, active_button: QPushButton) -> None:
+        self._update_nav_button_style(button, is_active=True)
+        
+        # Resetuj ostala dugmad
         for btn in self.nav_buttons:
-            btn.setProperty("active", btn is active_button)
-            btn.style().unpolish(btn)
-            btn.style().polish(btn)
+            if btn is not button:
+                self._update_nav_button_style(btn, is_active=False)
 
     def _do_backup(self) -> None:
         """Kreira backup baze podataka."""
