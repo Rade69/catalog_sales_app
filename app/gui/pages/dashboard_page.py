@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.gui.widgets.status_badge import make_status_badge, get_status_colors
 from app.services.dashboard_service import (
     ChartData,
     DashboardService,
@@ -357,65 +358,71 @@ class DashboardPage(QWidget):
         rows: List[InstallmentRow]
     ) -> None:
         """Popunjava tabelu sa podacima o ratama."""
-        table.setRowCount(0)
-        table.setRowCount(len(rows))
+        # Prazan state
+        if not rows:
+            table.setRowCount(1)
+            placeholder = QTableWidgetItem("Nema podataka za prikaz")
+            placeholder.setTextAlignment(Qt.AlignCenter)
+            placeholder.setForeground(QColor("#9ca3af"))
+            placeholder.setFlags(Qt.ItemIsEnabled)
+            table.setItem(0, 0, placeholder)
+            table.setSpan(0, 0, 1, table.columnCount())
+            return
         
+        table.setRowCount(len(rows))
+
         for i, row in enumerate(rows):
             # Kupac
             table.setItem(i, 0, QTableWidgetItem(row.customer_name))
-            
+
             # Proizvod
             table.setItem(i, 1, QTableWidgetItem(row.product_name))
-            
+
             # Rata (n/N)
             rata_text = f"{row.installment_number}/{row.total_installments}"
             table.setItem(i, 2, QTableWidgetItem(rata_text))
-            
+
             # Iznos
             amount_item = QTableWidgetItem(f"{row.amount:.2f} KM")
             amount_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             table.setItem(i, 3, amount_item)
-            
+
             # Plaćeno
             paid_item = QTableWidgetItem(f"{row.paid_amount:.2f} KM")
             paid_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             table.setItem(i, 4, paid_item)
-            
+
             # Preostalo
             remaining_item = QTableWidgetItem(f"{row.remaining_amount:.2f} KM")
             remaining_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             if row.remaining_amount > 0:
                 remaining_item.setForeground(QColor("#dc2626"))
             table.setItem(i, 5, remaining_item)
-            
+
             # Dospijeće
             due_item = QTableWidgetItem(row.due_date.strftime("%d.%m.%Y."))
             due_item.setTextAlignment(Qt.AlignCenter)
             table.setItem(i, 6, due_item)
+
+            # Status - badge widget
+            status_badge = make_status_badge(row.status)
+            table.setCellWidget(i, 7, status_badge)
             
-            # Status
-            status_text = {
-                "paid": "PLAĆENO",
-                "partially_paid": "DJELIMIČNO",
-                "overdue": "KASNI",
-                "pending": "ČEKA"
-            }.get(row.status, row.status.upper())
-            
-            status_item = QTableWidgetItem(status_text)
-            status_item.setTextAlignment(Qt.AlignCenter)
-            
-            # Boja statusa
-            if row.status == "paid":
-                status_item.setForeground(QColor("#059669"))
-            elif row.status == "overdue":
-                status_item.setForeground(QColor("#dc2626"))
-            elif row.status == "partially_paid":
-                status_item.setForeground(QColor("#d97706"))
-            else:
-                status_item.setForeground(QColor("#6b7280"))
-            
-            table.setItem(i, 7, status_item)
-        
+            # Bojanje reda po statusu (Task 4)
+            bg_color, _ = get_status_colors(row.status)
+            if row.status == "overdue":
+                # Svijetlo crvena pozadina za rate koje kasne
+                for col in range(table.columnCount()):
+                    item = table.item(i, col)
+                    if item:
+                        item.setBackground(QColor("#fff1f2"))
+            elif row.status == "paid":
+                # Svijetlo zelena pozadina za plaćene rate
+                for col in range(table.columnCount()):
+                    item = table.item(i, col)
+                    if item:
+                        item.setBackground(QColor("#f0fdf4"))
+
         table.resizeColumnsToContents()
 
     def _load_dashboard_data(self) -> None:

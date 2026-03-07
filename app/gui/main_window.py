@@ -1,4 +1,5 @@
 from pathlib import Path
+from datetime import datetime
 
 from PySide6.QtWidgets import (
     QFrame,
@@ -8,6 +9,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QStackedWidget,
+    QStatusBar,
     QVBoxLayout,
     QWidget,
 )
@@ -43,6 +45,10 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(content, 1)
 
         self.setCentralWidget(root)
+        
+        # Statusna traka
+        self._setup_status_bar()
+        
         self.switch_page(0, self.nav_buttons[0])
 
     def _build_sidebar(self) -> QWidget:
@@ -63,13 +69,17 @@ class MainWindow(QMainWindow):
 
         self.stack = QStackedWidget()
         self.pages = [
-            ("Dashboard", DashboardPage()),
-            ("Kupci", CustomersPage()),
-            ("Kampanje", CampaignsPage()),
-            ("Narudžbe", OrdersPage()),
-            ("Rate", InstallmentsPage()),
-            ("Uplate", PaymentsPage()),
-            ("Izvještaji", ReportsPage()),
+            ("🏠  Dashboard", DashboardPage()),
+            ("👥  Kupci", CustomersPage()),
+            ("📋  Kampanje", CampaignsPage()),
+            ("🛒  Narudžbe", OrdersPage()),
+            ("📅  Rate", InstallmentsPage()),
+            ("💳  Uplate", PaymentsPage()),
+            ("📊  Izvještaji", ReportsPage()),
+        ]
+        # Čisti nazivi za title i subtitle (bez ikonica)
+        self.page_names = [
+            "Dashboard", "Kupci", "Kampanje", "Narudžbe", "Rate", "Uplate", "Izvještaji"
         ]
         self.nav_buttons = []
 
@@ -126,7 +136,8 @@ class MainWindow(QMainWindow):
 
     def switch_page(self, index: int, button: QPushButton) -> None:
         self.stack.setCurrentIndex(index)
-        self.page_title.setText(self.pages[index][0])
+        # Koristi čisti naziv bez ikonice za title
+        self.page_title.setText(self.page_names[index])
         subtitles = {
             "Dashboard": "Početni pregled modula i toka rada aplikacije.",
             "Kupci": "Baza kupaca, pretraga i pravi unos u SQLite bazu.",
@@ -136,10 +147,11 @@ class MainWindow(QMainWindow):
             "Uplate": "Evidencija svih uplata, uključujući djelimične uplate.",
             "Izvještaji": "Mjesečni iznos uplaćenih sredstava i Excel eksport.",
         }
-        self.page_subtitle.setText(subtitles.get(self.pages[index][0], ""))
+        self.page_subtitle.setText(subtitles.get(self.page_names[index], ""))
         page_widget = self.pages[index][1]
         if hasattr(page_widget, "on_activate"):
             page_widget.on_activate()
+        self._update_last_refresh()
         self._set_active_button(button)
 
     def _set_active_button(self, active_button: QPushButton) -> None:
@@ -154,9 +166,9 @@ class MainWindow(QMainWindow):
             # Izvuci putanju do baze iz DATABASE_URL
             db_path = DATABASE_URL.replace("sqlite:///", "")
             backup_dir = Path(__file__).resolve().parents[3] / "backup"
-            
+
             backup_file = BackupManager.backup_database(db_path, backup_dir)
-            
+
             QMessageBox.information(
                 self,
                 "Backup uspješan",
@@ -168,3 +180,23 @@ class MainWindow(QMainWindow):
                 "Greška pri backup-u",
                 f"Backup nije uspio:\n{str(e)}"
             )
+
+    def _setup_status_bar(self) -> None:
+        """Postavlja statusnu traku na dno prozora."""
+        status_bar = self.statusBar()
+        status_bar.setStyleSheet("background: #111827; color: #9ca3af; font-size: 11px;")
+        
+        # Lijevo: putanja do baze
+        db_path = DATABASE_URL.replace("sqlite:///", "")
+        self.status_db_label = QLabel(f"📁 DB: {db_path}")
+        status_bar.addPermanentWidget(self.status_db_label, 0)
+        
+        # Desno: zadnje osvježenje
+        self.status_refresh_label = QLabel("Posljednje osvježenje: --:--:--")
+        status_bar.addPermanentWidget(self.status_refresh_label, 0)
+
+    def _update_last_refresh(self) -> None:
+        """Ažurira vrijeme zadnjeg osvježenja u statusnoj traci."""
+        if hasattr(self, "status_refresh_label"):
+            now = datetime.now().strftime("%H:%M:%S")
+            self.status_refresh_label.setText(f"Posljednje osvježenje: {now}")
