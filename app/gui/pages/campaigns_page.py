@@ -179,14 +179,14 @@ class CampaignsPage(QWidget):
 
         # Konfiguracija tabele
         header = self.table.horizontalHeader()
-        header.setSectionResizeMode(1, QHeaderView.Stretch)  # Naziv
-        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # Start
-        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # End
-        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # Created
+        header.setSectionResizeMode(1, QHeaderView.Stretch)  # type: ignore[arg-type]  # Naziv
+        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # type: ignore[arg-type]  # Start
+        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # type: ignore[arg-type]  # End
+        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # type: ignore[arg-type]  # Created
 
-        self.table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.table.setSelectionMode(QTableWidget.SingleSelection)
-        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table.setSelectionBehavior(QTableWidget.SelectRows)  # type: ignore[arg-type]
+        self.table.setSelectionMode(QTableWidget.SingleSelection)  # type: ignore[arg-type]
+        self.table.setEditTriggers(QTableWidget.NoEditTriggers)  # type: ignore[arg-type]
         self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().setVisible(False)
 
@@ -303,7 +303,7 @@ class CampaignsPage(QWidget):
         for row, campaign in enumerate(campaigns):
             # ID
             id_item = QTableWidgetItem(str(campaign.id))
-            id_item.setTextAlignment(Qt.AlignCenter)
+            id_item.setTextAlignment(Qt.AlignCenter)  # type: ignore[arg-type]
             self.table.setItem(row, 0, id_item)
 
             # Naziv
@@ -311,17 +311,17 @@ class CampaignsPage(QWidget):
 
             # Datum početka
             start_item = QTableWidgetItem(campaign.start_date.strftime("%d.%m.%Y."))
-            start_item.setTextAlignment(Qt.AlignCenter)
+            start_item.setTextAlignment(Qt.AlignCenter)  # type: ignore[arg-type]
             self.table.setItem(row, 2, start_item)
 
             # Datum završetka
             end_item = QTableWidgetItem(campaign.end_date.strftime("%d.%m.%Y."))
-            end_item.setTextAlignment(Qt.AlignCenter)
+            end_item.setTextAlignment(Qt.AlignCenter)  # type: ignore[arg-type]
             self.table.setItem(row, 3, end_item)
 
             # Datum kreiranja
             created_item = QTableWidgetItem(campaign.created_at.strftime("%d.%m.%Y. %H:%M"))
-            created_item.setTextAlignment(Qt.AlignCenter)
+            created_item.setTextAlignment(Qt.AlignCenter)  # type: ignore[arg-type]
             self.table.setItem(row, 4, created_item)
 
         self.table.resizeColumnsToContents()

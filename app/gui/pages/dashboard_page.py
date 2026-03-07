@@ -381,17 +381,17 @@ class DashboardPage(QWidget):
         
         # Konfiguracija
         header = table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.Stretch)  # Kupac
-        header.setSectionResizeMode(1, QHeaderView.Stretch)  # Proizvod
-        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # Rata
-        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # Iznos
-        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # Plaćeno
-        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # Preostalo
-        header.setSectionResizeMode(6, QHeaderView.ResizeToContents)  # Dospijeće
-        header.setSectionResizeMode(7, QHeaderView.ResizeToContents)  # Status
-        
-        table.setSelectionBehavior(QTableWidget.SelectRows)
-        table.setEditTriggers(QTableWidget.NoEditTriggers)
+        header.setSectionResizeMode(0, QHeaderView.Stretch)  # type: ignore[arg-type]  # Kupac
+        header.setSectionResizeMode(1, QHeaderView.Stretch)  # type: ignore[arg-type]  # Proizvod
+        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # type: ignore[arg-type]  # Rata
+        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # type: ignore[arg-type]  # Iznos
+        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # type: ignore[arg-type]  # Plaćeno
+        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # type: ignore[arg-type]  # Preostalo
+        header.setSectionResizeMode(6, QHeaderView.ResizeToContents)  # type: ignore[arg-type]  # Dospijeće
+        header.setSectionResizeMode(7, QHeaderView.ResizeToContents)  # type: ignore[arg-type]  # Status
+
+        table.setSelectionBehavior(QTableWidget.SelectRows)  # type: ignore[arg-type]
+        table.setEditTriggers(QTableWidget.NoEditTriggers)  # type: ignore[arg-type]
         table.setAlternatingRowColors(True)
         table.verticalHeader().setVisible(False)
         
@@ -446,7 +446,7 @@ class DashboardPage(QWidget):
 
             # Dospijeće
             due_item = QTableWidgetItem(row.due_date.strftime("%d.%m.%Y."))
-            due_item.setTextAlignment(Qt.AlignCenter)
+            due_item.setTextAlignment(Qt.AlignCenter)  # type: ignore[arg-type]
             table.setItem(i, 6, due_item)
 
             # Status - badge widget
