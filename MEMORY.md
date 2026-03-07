@@ -23,27 +23,49 @@ app/
 - `run.py` - Ulazna tačka
 - `app/database/models.py` - SQLAlchemy modeli (datetime.now(UTC))
 - `app/gui/main_window.py` - Glavni prozor (sidebar, status bar, backup) — 8 tabova
-- `app/gui/pages/dashboard_page.py` - Dashboard (KPI, grafovi, tabele, brze akcije)
-- `app/gui/pages/campaigns_page.py` - Kampanje: import Excel, pregled proizvoda kampanje
+- `app/gui/pages/dashboard_page.py` - Dashboard (RED1: 4 KPI, RED2: 2 statusa, RED3: 2 tabele)
+- `app/gui/pages/campaigns_page.py` - Kampanje: import u modalnom dijalogu
 - `app/gui/pages/orders_page.py` - Narudžbe: dropdown kampanja/proizvoda, auto-fill cijene
-- `app/gui/pages/price_list_page.py` - Cjenovnik: import, pregled, pretraga, brisanje
+- `app/gui/pages/price_list_page.py` - Cjenovnik: import sa prepoznavanjem firme, pregled, pretraga
 - `app/gui/widgets/status_badge.py` - Status badge widgeti
-- `app/services/dashboard_service.py` - Dashboard KPI-jevi (N+1 query fix)
+- `app/services/dashboard_service.py` - get_dashboard_kpis(), get_status_kpis(), tabele rata
 - `app/services/campaign_service.py` - Import kampanja, list_campaign_products (expunge fix)
-- `app/services/price_list_service.py` - Import/pregled cjenovnika iz Excel-a
+- `app/services/price_list_service.py` - Import cjenovnika sa detekcijom firme (supplier)
 - `app/services/order_service.py` - Narudžbe (koristi InstallmentService)
 - `app/services/installment_service.py` - Rate (sync_statuses)
 - `app/services/history_import_service.py` - Import istorije
 - `app/services/payment_service.py` - Uplate (validacija preplate)
 - `app/importers/excel_importer.py` - Excel parser: _detect_header_row, no-space matching
+- `migrate_supplier.py` - Migracija za dodavanje supplier kolone
 
-### Dashboard KPI-jevi
-1. **Ukupan broj kupaca** - COUNT(Customer)
-2. **Aktivne narudžbe** - narudžbe sa neplaćenim ratama
-3. **Ukupan preostali dug** - SUM(installment.amount) - SUM(payment.amount)
-4. **Naplaćeno ovaj mjesec** - SUM(payment.amount) WHERE current month
-5. **Rate koje kasne** - COUNT WHERE due_date < danas AND remaining > 0
-6. **Rate ovog mjeseca** - COUNT WHERE due_date IN current month
+### Dashboard - Redizajn (v0.7)
+
+**Layout:**
+- **RED 1** - 4 KPI kartice sa ikonicama:
+  - 👥 Ukupan broj kupaca
+  - 📋 Aktivne narudžbe
+  - 💰 Ukupan preostali dug
+  - 💳 Naplaćeno ovaj mjesec
+
+- **RED 2** - 2 Status kartice (žuti alert stil):
+  - ⚠️ Rate koje kasne
+  - 📅 Rate ovog mjeseca
+
+- **RED 3** - 2 Tabele:
+  - Rate koje kasne (Kupac, Proizvod, Rata, Plaćeno, Preostalo, Dospijeće)
+  - Rate ovog mjeseca (isto + Status badge)
+
+**Uklonjeno:**
+- Grafovi (monthly payments, orders by campaign)
+- Brze akcije
+
+**Service metode:**
+```python
+get_dashboard_kpis()      # 4 KPI-ja za RED 1
+get_status_kpis()         # 2 statusa za RED 2
+get_overdue_installments()    # tabela rata koje kasne
+get_current_month_installments()  # tabela rata ovog mjeseca
+```
 
 ### Statusi Rata (STATUS_CONFIG)
 - `paid` → PLAĆENO (zelena #dcfce7)
@@ -59,6 +81,8 @@ app/
 ### Verzije
 - **0.5** - Dashboard sa KPI-jevima, grafovima i tabelama
 - **0.6** - GUI poboljšanja (badge-ovi, ikonice, prečice, brze akcije)
+- **0.7** - Dashboard redizajn (bez grafova, 3 reda: KPI, Status, Tabele)
+- **0.8** - Cjenovnik sa supplier kolonom (prepoznavanje firme iz Excel-a)
 
 ### Ključne Implementacije
 
@@ -74,6 +98,19 @@ paid_sum_subq = select(Payment.installment_id, func.sum(Payment.amount))
 InstallmentService.sync_statuses()  # Poziva se u run.py pri pokretanju
 ```
 
+#### Detekcija Firme u Cjenovniku (price_list_service.py)
+```python
+# Red je naziv firme ako ima naziv, ali NEMA šifru, cijenu ili brand
+is_supplier_row = (
+    name_str
+    and is_empty_or_header(supplier_code_val)
+    and is_empty_or_header(regular_price_val)
+    and (brand_val is None or str(brand_val).strip() in ("", "nan"))
+)
+if is_supplier_row:
+    current_supplier = name_str  # Sačuvaj za naredne proizvode
+```
+
 #### Backup Dugme
 - 💾 Backup baze u sidebar-u
 - Kreira backup u `/backup/` folder
@@ -81,7 +118,6 @@ InstallmentService.sync_statuses()  # Poziva se u run.py pri pokretanju
 #### Prečice
 - `Ctrl+N` - Novi unos (Kupci, Narudžbe)
 
-#### Brze Akcije (Dashboard)
-- ➕ Nova narudžba → navigira na OrdersPage
-- 💳 Evidentiraj uplatu → navigira na PaymentsPage
-- 📊 Otvori izvještaj → navigira na ReportsPage
+#### Modalni Import Kampanje
+- Import forma premještena iz kartice u modalni dijalog
+- Dugme "📥 Import iz Excel-a" u headeru tabele kampanja
