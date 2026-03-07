@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.database.models import PriceList, PriceListItem
+from app.gui.table_helpers import style_table, show_empty_state, create_numeric_item
 from app.services.price_list_service import PriceListService
 
 
@@ -156,11 +157,7 @@ class PriceListPage(QWidget):
         lh.setSectionResizeMode(0, QHeaderView.ResizeToContents)
         lh.setSectionResizeMode(1, QHeaderView.Stretch)
         lh.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        self.lists_table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.lists_table.setSelectionMode(QTableWidget.SingleSelection)
-        self.lists_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.lists_table.setAlternatingRowColors(True)
-        self.lists_table.verticalHeader().setVisible(False)
+        style_table(self.lists_table)
         self.lists_table.itemSelectionChanged.connect(self._on_list_selected)
 
         # Kontekstualni meni za brisanje (desni klik)
@@ -213,10 +210,7 @@ class PriceListPage(QWidget):
         header.setSectionResizeMode(5, QHeaderView.Fixed)
         self.items_table.setColumnWidth(5, 70)
 
-        self.items_table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.items_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.items_table.setAlternatingRowColors(True)
-        self.items_table.verticalHeader().setVisible(False)
+        style_table(self.items_table)
 
         layout.addWidget(self.items_table, 1)
         return group
@@ -426,24 +420,16 @@ class PriceListPage(QWidget):
             self.items_table.setItem(i, 3, QTableWidgetItem(item.supplier_code or ""))
 
             # Cijena
-            price_item = QTableWidgetItem(
-                f"{item.regular_price:.2f}" if item.regular_price is not None else "—"
-            )
-            price_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            self.items_table.setItem(i, 4, price_item)
+            self.items_table.setItem(i, 4, create_numeric_item(item.regular_price))
 
             # Akcija — zelena boja ako postoji
-            disc_item = QTableWidgetItem(
-                f"{item.discount_price:.2f}" if item.discount_price is not None else ""
-            )
-            disc_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            disc_item = create_numeric_item(item.discount_price)
             if item.discount_price is not None:
                 disc_item.setForeground(QColor("#059669"))
             self.items_table.setItem(i, 5, disc_item)
 
             # Bod
-            bod_item = QTableWidgetItem(str(item.points) if item.points is not None else "")
-            bod_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            bod_item = create_numeric_item(item.points)
             self.items_table.setItem(i, 6, bod_item)
 
     def _filter_items(self, text: str) -> None:

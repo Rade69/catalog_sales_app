@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.gui.table_helpers import style_table, show_empty_state, create_numeric_item
 from app.gui.widgets.status_badge import make_status_badge
 from app.services.dashboard_service import (
     DashboardService,
@@ -282,10 +283,7 @@ class DashboardPage(QWidget):
         header.setSectionResizeMode(4, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(5, QHeaderView.ResizeToContents)
 
-        table.setSelectionBehavior(QTableWidget.SelectRows)
-        table.setEditTriggers(QTableWidget.NoEditTriggers)
-        table.setAlternatingRowColors(True)
-        table.verticalHeader().setVisible(False)
+        style_table(table)
 
         return table
 
@@ -306,10 +304,7 @@ class DashboardPage(QWidget):
         header.setSectionResizeMode(5, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(6, QHeaderView.ResizeToContents)
 
-        table.setSelectionBehavior(QTableWidget.SelectRows)
-        table.setEditTriggers(QTableWidget.NoEditTriggers)
-        table.setAlternatingRowColors(True)
-        table.verticalHeader().setVisible(False)
+        style_table(table)
 
         return table
 
@@ -320,41 +315,25 @@ class DashboardPage(QWidget):
     ) -> None:
         """Popunjava tabelu sa ratama koje kasne."""
         if not rows:
-            table.setRowCount(1)
-            placeholder = QTableWidgetItem("Nema rata koje kasne")
-            placeholder.setTextAlignment(Qt.AlignCenter)
-            placeholder.setForeground(QColor("#9ca3af"))
-            placeholder.setFlags(Qt.ItemIsEnabled)
-            table.setItem(0, 0, placeholder)
-            table.setSpan(0, 0, 1, table.columnCount())
+            show_empty_state(table, "Nema rata koje kasne")
             return
 
         table.setRowCount(len(rows))
 
         for i, row in enumerate(rows):
-            # Kupac
             table.setItem(i, 0, QTableWidgetItem(row.customer_name))
-
-            # Proizvod
             table.setItem(i, 1, QTableWidgetItem(row.product_name))
 
-            # Rata (n/N)
             rata_text = f"{row.installment_number}/{row.total_installments}"
             table.setItem(i, 2, QTableWidgetItem(rata_text))
 
-            # Plaćeno
-            paid_item = QTableWidgetItem(f"{row.paid_amount:.2f} KM")
-            paid_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            table.setItem(i, 3, paid_item)
+            table.setItem(i, 3, create_numeric_item(row.paid_amount, " KM"))
 
-            # Preostalo (crveno ako > 0)
-            remaining_item = QTableWidgetItem(f"{row.remaining_amount:.2f} KM")
-            remaining_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            remaining_item = create_numeric_item(row.remaining_amount, " KM")
             if row.remaining_amount > 0:
                 remaining_item.setForeground(QColor("#dc2626"))
             table.setItem(i, 4, remaining_item)
 
-            # Dospijeće
             due_item = QTableWidgetItem(row.due_date.strftime("%d.%m.%Y."))
             due_item.setTextAlignment(Qt.AlignCenter)
             table.setItem(i, 5, due_item)
@@ -368,46 +347,29 @@ class DashboardPage(QWidget):
     ) -> None:
         """Popunjava tabelu sa ratama ovog mjeseca."""
         if not rows:
-            table.setRowCount(1)
-            placeholder = QTableWidgetItem("Nema rata za ovaj mjesec")
-            placeholder.setTextAlignment(Qt.AlignCenter)
-            placeholder.setForeground(QColor("#9ca3af"))
-            placeholder.setFlags(Qt.ItemIsEnabled)
-            table.setItem(0, 0, placeholder)
-            table.setSpan(0, 0, 1, table.columnCount())
+            show_empty_state(table, "Nema rata za ovaj mjesec")
             return
 
         table.setRowCount(len(rows))
 
         for i, row in enumerate(rows):
-            # Kupac
             table.setItem(i, 0, QTableWidgetItem(row.customer_name))
-
-            # Proizvod
             table.setItem(i, 1, QTableWidgetItem(row.product_name))
 
-            # Rata (n/N)
             rata_text = f"{row.installment_number}/{row.total_installments}"
             table.setItem(i, 2, QTableWidgetItem(rata_text))
 
-            # Plaćeno
-            paid_item = QTableWidgetItem(f"{row.paid_amount:.2f} KM")
-            paid_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            table.setItem(i, 3, paid_item)
+            table.setItem(i, 3, create_numeric_item(row.paid_amount, " KM"))
 
-            # Preostalo
-            remaining_item = QTableWidgetItem(f"{row.remaining_amount:.2f} KM")
-            remaining_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            remaining_item = create_numeric_item(row.remaining_amount, " KM")
             if row.remaining_amount > 0:
                 remaining_item.setForeground(QColor("#dc2626"))
             table.setItem(i, 4, remaining_item)
 
-            # Dospijeće
             due_item = QTableWidgetItem(row.due_date.strftime("%d.%m.%Y."))
             due_item.setTextAlignment(Qt.AlignCenter)
             table.setItem(i, 5, due_item)
 
-            # Status badge
             status_badge = make_status_badge(row.status)
             table.setCellWidget(i, 6, status_badge)
 

@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.gui.table_helpers import style_table, show_empty_state
 from app.services.customer_service import CustomerService
 
 
@@ -111,11 +112,7 @@ class CustomersPage(QWidget):
 
         self.table = QTableWidget(0, 4)
         self.table.setHorizontalHeaderLabels(["Kupac", "Telefon", "Mjesto", "Adresa"])
-        self.table.verticalHeader().setVisible(False)
-        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.table.setSelectionMode(QTableWidget.SingleSelection)
-        self.table.setShowGrid(False)
+        style_table(self.table)
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.itemSelectionChanged.connect(self.populate_form_from_selection)
         table_layout.addWidget(self.table)
@@ -130,18 +127,12 @@ class CustomersPage(QWidget):
 
     def load_customers(self) -> None:
         customers = CustomerService.list_customers(self.search_input.text())
-        
+
         # Prazan state
         if not customers:
-            self.table.setRowCount(1)
-            placeholder = QTableWidgetItem("Nema kupaca za prikaz")
-            placeholder.setTextAlignment(Qt.AlignCenter)
-            placeholder.setForeground(QColor("#9ca3af"))
-            placeholder.setFlags(Qt.ItemIsEnabled)
-            self.table.setItem(0, 0, placeholder)
-            self.table.setSpan(0, 0, 1, self.table.columnCount())
+            show_empty_state(self.table, "Nema kupaca za prikaz")
             return
-        
+
         self.table.setRowCount(len(customers))
         for row, customer in enumerate(customers):
             values = [
