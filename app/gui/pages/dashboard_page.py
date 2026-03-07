@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.gui.table_helpers import style_table, show_empty_state, create_numeric_item
-from app.gui.widgets.status_badge import make_status_badge
+from app.gui.components.status_badge import StatusBadge
 from app.services.dashboard_service import (
     DashboardService,
     InstallmentRow,
@@ -367,10 +367,10 @@ class DashboardPage(QWidget):
             table.setItem(i, 4, remaining_item)
 
             due_item = QTableWidgetItem(row.due_date.strftime("%d.%m.%Y."))
-            due_item.setTextAlignment(Qt.AlignCenter)
+            due_item.setTextAlignment(Qt.AlignCenter)  # type: ignore[arg-type]
             table.setItem(i, 5, due_item)
 
-            status_badge = make_status_badge(row.status)
+            status_badge = StatusBadge(row.status)
             table.setCellWidget(i, 6, status_badge)
 
         table.resizeColumnsToContents()

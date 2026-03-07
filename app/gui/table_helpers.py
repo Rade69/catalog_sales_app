@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.gui.widgets.status_badge import make_status_badge, STATUS_CONFIG
+from app.gui.components.status_badge import StatusBadge
 
 
 # -----------------------------------------------------------------------------
@@ -159,7 +159,7 @@ def create_numeric_item(value: float | int | None, suffix: str = "") -> QTableWi
     return item
 
 
-def create_status_item(status: str) -> QLabel:
+def create_status_item(status: str) -> StatusBadge:
     """
     Kreira status badge widget.
 
@@ -167,9 +167,9 @@ def create_status_item(status: str) -> QLabel:
         status: Status string (paid, overdue, pending, etc.)
 
     Returns:
-        QLabel badge widget
+        StatusBadge widget
     """
-    return make_status_badge(status)
+    return StatusBadge(status)
 
 
 # -----------------------------------------------------------------------------
@@ -184,12 +184,11 @@ def show_empty_state(table: QTableWidget, message: str = "Nema podataka za prika
         table: QTableWidget
         message: Poruka za prikaz
     """
+    from app.gui.components.empty_state_widget import EmptyStateWidget
+    
     table.setRowCount(1)
-    placeholder = QTableWidgetItem(message)
-    placeholder.setTextAlignment(Qt.AlignCenter)
-    placeholder.setForeground(QColor("#9ca3af"))
-    placeholder.setFlags(Qt.ItemIsEnabled)
-    table.setItem(0, 0, placeholder)
+    empty_widget = EmptyStateWidget(message)
+    table.setCellWidget(0, 0, empty_widget)
     table.setSpan(0, 0, 1, table.columnCount())
 
 
