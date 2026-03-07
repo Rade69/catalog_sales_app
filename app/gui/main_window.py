@@ -82,11 +82,6 @@ class MainWindow(QMainWindow):
         self.page_names = [
             "Dashboard", "Kupci", "Narudžbe", "Kampanje", "Uplate", "Izvještaji", "Postavke"
         ]
-        self.page_index_map = {
-            "orders": 2,
-            "payments": 4,
-            "reports": 5,
-        }
         self.nav_buttons = []
         self.nav_icons = ["dashboard", "customers", "orders", "campaigns", "payments", "reports", "settings"]
 
@@ -94,16 +89,12 @@ class MainWindow(QMainWindow):
             btn = self._create_nav_button(name, index, self.nav_icons[index])
             layout.addWidget(btn)
             self.nav_buttons.append(btn)
-            
+
             # Dodaj stranicu u stack (osim Postavke koji je dummy)
             if index < 6:
                 self.stack.addWidget(page)
             else:
                 self.stack.addWidget(self._create_settings_page())
-
-            # Poveži navigate_to signal sa DashboardPage
-            if name == "Dashboard":
-                page.navigate_to.connect(self._navigate_from_dashboard)
 
         layout.addStretch(1)
 
@@ -334,14 +325,3 @@ class MainWindow(QMainWindow):
         if hasattr(self, "status_refresh_label"):
             now = datetime.now().strftime("%H:%M:%S")
             self.status_refresh_label.setText(f"Posljednje osvježenje: {now}")
-
-    def _navigate_from_dashboard(self, page_key: str) -> None:
-        """
-        Navigacija sa Dashboarda na drugu stranicu.
-        
-        Args:
-            page_key: "orders", "payments" ili "reports"
-        """
-        index = self.page_index_map.get(page_key)
-        if index is not None:
-            self.switch_page(index, self.nav_buttons[index])
