@@ -88,6 +88,7 @@ get_current_month_installments()  # tabela rata ovog mjeseca
 - **0.10** - Table helpers (konzistentan stil tabela, empty state, numeric items)
 - **0.11** - Dashboard v2: tamno plavi sidebar/topbar, SVG ikonice na dugmad, delete funkcije
 - **0.12** - PaymentsPage redizajn: filteri, panel za uplatu, historija uplata
+- **0.13** - Excel izvještaj naplate: format "EVIDENCIJA O UPLATAMA RATA"
 
 ### SVG Ikonice (icons.py)
 **19 ikona:** dashboard, customers, orders, campaigns, payments, reports, settings, backup, pricelist, import, refresh, delete, save, cart, search, credit-card, chart, calendar, alert
@@ -173,6 +174,38 @@ PaymentService.get_installments_for_payment(
 ```
 
 **Napomena:** `Installment.paid_amount` je property bez settera, pa se koristi `_paid_amount_value` za privremeno čuvanje izračunate vrijednosti.
+
+### Excel Izvještaj Naplate (v0.13)
+
+**Fajl:** `app/reports/naplata_report.py`
+
+**Format:** "EVIDENCIJA O UPLATAMA RATA" (originalni izgled)
+
+**Stilovi:**
+- Zaglavlje: tamno plava (`#1F3864`)
+- Pod-zaglavlje: svjetlo plava (`#BDD7EE`)
+- UKUPNO red: još svjetlija (`#D9E1F2`)
+- Alternativni redovi: siva (`#F2F2F2`)
+
+**Kolone:**
+- R.br., Br. ugovora, Prezime i ime, Šifra proizvoda, Vrijed. (KM), Br. rata
+- Rate: I, II, III... (rimski brojevi)
+- Datumi: npr. "15.jan.", "15.feb."
+- Ukupno (KM), Preostalo (KM)
+
+**Features:**
+- Automatsko generisanje datuma iz `installment.due_date`
+- Bosanski format brojeva: `1.840,70` (tačka hiljade, zarez decimale)
+- Freeze panes na koloni KUPAC (red 6)
+- Landscape orijentacija, fit-to-width
+- Zaglavlje se ponavlja na svakoj stranici (redovi 4-5)
+
+**GUI:** `reports_page.py` → `_build_naplata_card()`
+- Odabir kampanje (dropdown)
+- Saradnički broj (input)
+- Ime saradnika (input, default: "KRUNIĆ STOJANOVIĆ SANJA")
+- Dugme: "📊 Generiraj Excel izvještaj"
+- Status poruka sa putanjom do fajla
 
 ### Fix DetachedInstanceError
 ```python
