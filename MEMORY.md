@@ -89,6 +89,7 @@ get_current_month_installments()  # tabela rata ovog mjeseca
 - **0.11** - Dashboard v2: tamno plavi sidebar/topbar, SVG ikonice na dugmad, delete funkcije
 - **0.12** - PaymentsPage redizajn: filteri, panel za uplatu, historija uplata
 - **0.13** - Excel izvještaj naplate: format "EVIDENCIJA O UPLATAMA RATA"
+- **0.14** - Fix N+1 query u sync_statuses(), uklonjen mrtav kod iz PaymentService
 
 ### SVG Ikonice (icons.py)
 **19 ikona:** dashboard, customers, orders, campaigns, payments, reports, settings, backup, pricelist, import, refresh, delete, save, cart, search, credit-card, chart, calendar, alert
@@ -212,6 +213,38 @@ PaymentService.get_installments_for_payment(
 # U create_order() i get_order_details()
 session.expunge(order)  # Da objekat ostane upotrebljiv van sesije
 ```
+
+### Fix N+1 Query (v0.14)
+
+**Problem:** `InstallmentService.sync_statuses()` je pri svakom pokretanju aplikacije
+izvršavao **739 dodatnih SQL upita** (jedan po rati za učitavanje uplata).
+
+**Rješenje:** Korištenje `selectinload(Installment.payments)`:
+
+```python
+# Prije (N+1 problem):
+stmt = select(Installment).order_by(Installment.id)
+# Pristup installment.payments okida novi SQL upit za svaku ratu
+
+# Poslije (fix):
+stmt = (
+    select(Installment)
+    .options(selectinload(Installment.payments))  # Učitava sve uplate jednim IN upitom
+    .order_by(Installment.id)
+)
+```
+
+**Rezultat:** 739 upita → 1 upit pri pokretanju aplikacije.
+
+### Uklonjen Mrtav Kod (v0.14)
+
+Iz `app/services/payment_service.py` uklonjeno:
+- `InstallmentLookupRow` (dataclass)
+- `list_installments()` (~35 linija)
+- `build_installment_lookup()` (~20 linija)
+- `list_payments()` (~30 linija)
+
+Ove metode se nisu koristile u aktivnom GUI kodu (samo u `payments_page_backup.py`).
 
 ### Narudžbe - Broj Rata
 ```python
