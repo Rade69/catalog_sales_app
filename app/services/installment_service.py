@@ -5,9 +5,10 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from dateutil.relativedelta import relativedelta
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.database.database import session_scope
-from app.database.models import Installment, InstallmentStatus, Order
+from app.database.models import Installment, InstallmentStatus, Order, Payment
 
 
 class InstallmentService:
@@ -46,7 +47,10 @@ class InstallmentService:
     def sync_statuses() -> None:
         """
         Sinhronizuje status svih rata u bazi.
-        
+
+        FIX: Koristi selectinload(Installment.payments) da izbjegne N+1 problem.
+        Bez ovoga, svaki pristup installment.payments okida poseban SQL upit.
+
         Za svaku ratu izračuna paid_amount i postavi status:
         - paid_amount >= installment.amount → PAID
         - 0 < paid_amount < installment.amount → PARTIALLY_PAID
@@ -54,23 +58,23 @@ class InstallmentService:
         - inače → PENDING
         """
         today = date.today()
-        
+
         with session_scope() as session:
-            # Dohvati sve rate sa uplatama
-            stmt = select(Installment).order_by(Installment.id)
+            # FIX: selectinload učitava sve uplate u jednom IN-query umjesto N upita
+            stmt = (
+                select(Installment)
+                .options(selectinload(Installment.payments))
+                .order_by(Installment.id)
+            )
             installments = list(session.execute(stmt).scalars().all())
-            
-            updated_count = 0
-            
+
             for installment in installments:
-                # Izračunaj plaćeno
                 paid_amount = sum(
-                    (payment.amount for payment in installment.payments),
-                    Decimal("0.00")
+                    (Decimal(str(payment.amount)) for payment in installment.payments),
+                    Decimal("0.00"),
                 )
                 amount = Decimal(str(installment.amount))
-                
-                # Odredi novi status
+
                 if paid_amount >= amount:
                     new_status = InstallmentStatus.PAID
                 elif paid_amount > Decimal("0.00"):
@@ -79,12 +83,8 @@ class InstallmentService:
                     new_status = InstallmentStatus.OVERDUE
                 else:
                     new_status = InstallmentStatus.PENDING
-                
-                # Ažuriraj ako se status promijenio
+
                 if installment.status != new_status:
                     installment.status = new_status
                     if new_status == InstallmentStatus.PAID:
                         installment.paid_at = date.today()
-                    updated_count += 1
-            
-            # Commit se dešava automatski kroz session_scope

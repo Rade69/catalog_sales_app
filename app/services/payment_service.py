@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
@@ -44,78 +43,7 @@ def _recalculate_order_status(order: Order) -> None:
         order.status = OrderStatus.ACTIVE
 
 
-@dataclass
-class InstallmentLookupRow:
-    installment_id: int
-    customer_name: str
-    product_name: str
-    campaign_name: str
-    installment_number: int
-    installments_count: int
-    due_date: date
-    status: str
-    amount: Decimal
-    paid_amount: Decimal
-    remaining_amount: Decimal
-
-
 class PaymentService:
-    @staticmethod
-    def list_installments(search_text: str = '', only_open: bool = False) -> list[Installment]:
-        with session_scope() as session:
-            stmt = (
-                select(Installment)
-                .options(
-                    joinedload(Installment.order).joinedload(Order.customer),
-                    joinedload(Installment.order).joinedload(Order.campaign),
-                    joinedload(Installment.payments),
-                )
-                .join(Installment.order)
-                .join(Order.customer)
-                .join(Order.campaign)
-                .order_by(Installment.due_date.asc(), Installment.installment_number.asc())
-            )
-            search = search_text.strip()
-            if search:
-                like = f'%{search}%'
-                stmt = stmt.where(
-                    or_(
-                        Customer.full_name.ilike(like),
-                        Customer.phone.ilike(like),
-                        Customer.city.ilike(like),
-                        Order.product_name_snapshot.ilike(like),
-                        Order.product_code_snapshot.ilike(like),
-                        Order.product_brand_snapshot.ilike(like),
-                        Campaign.name.ilike(like),
-                    )
-                )
-            installments = list(session.execute(stmt).unique().scalars().all())
-            if only_open:
-                installments = [inst for inst in installments if Decimal(str(inst.remaining_amount)) > Decimal('0.00')]
-            return installments
-
-    @staticmethod
-    def build_installment_lookup(search_text: str = '', only_open: bool = False) -> list[InstallmentLookupRow]:
-        rows: list[InstallmentLookupRow] = []
-        for inst in PaymentService.list_installments(search_text=search_text, only_open=only_open):
-            order = inst.order
-            rows.append(
-                InstallmentLookupRow(
-                    installment_id=inst.id,
-                    customer_name=order.customer.full_name,
-                    product_name=order.product_name_snapshot,
-                    campaign_name=order.campaign.name,
-                    installment_number=inst.installment_number,
-                    installments_count=order.installments_count,
-                    due_date=inst.due_date,
-                    status=inst.status.value,
-                    amount=_to_decimal(inst.amount),
-                    paid_amount=_to_decimal(inst.paid_amount),
-                    remaining_amount=_to_decimal(inst.remaining_amount),
-                )
-            )
-        return rows
-
     @staticmethod
     def get_installment(installment_id: int) -> Installment:
         with session_scope() as session:
@@ -131,38 +59,6 @@ class PaymentService:
             if installment is None:
                 raise ValueError('Rata nije pronađena.')
             return installment
-
-    @staticmethod
-    def list_payments(search_text: str = '') -> list[Payment]:
-        with session_scope() as session:
-            stmt = (
-                select(Payment)
-                .options(
-                    joinedload(Payment.installment)
-                    .joinedload(Installment.order)
-                    .joinedload(Order.customer),
-                    joinedload(Payment.installment)
-                    .joinedload(Installment.order)
-                    .joinedload(Order.campaign),
-                )
-                .join(Payment.installment)
-                .join(Installment.order)
-                .join(Order.customer)
-                .join(Order.campaign)
-                .order_by(Payment.payment_date.desc(), Payment.id.desc())
-            )
-            search = search_text.strip()
-            if search:
-                like = f'%{search}%'
-                stmt = stmt.where(
-                    or_(
-                        Customer.full_name.ilike(like),
-                        Order.product_name_snapshot.ilike(like),
-                        Campaign.name.ilike(like),
-                        Payment.note.ilike(like),
-                    )
-                )
-            return list(session.execute(stmt).unique().scalars().all())
 
     @staticmethod
     def create_payment(installment_id: int, amount: str | float | Decimal, payment_date: date, note: str = '') -> Payment:
