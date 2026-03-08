@@ -195,7 +195,8 @@ class PaymentService:
                 like = f"%{search}%"
                 stmt = stmt.where(
                     Customer.full_name.ilike(like) |
-                    Order.product_name_snapshot.ilike(like)
+                    Order.product_name_snapshot.ilike(like) |
+                    Order.contract_number.ilike(like)
                 )
 
             stmt = stmt.order_by(Installment.due_date.asc())

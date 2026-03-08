@@ -90,7 +90,7 @@ class PaymentsPage(QWidget):
 
         # Search
         self.search_edit = QLineEdit()
-        self.search_edit.setPlaceholderText("Pretraži po kupcu ili artiklu...")
+        self.search_edit.setPlaceholderText("🔍 Pretraži po kupcu, artiklu ili br. ugovora...")
         self.search_edit.setMaximumWidth(250)
         self.search_edit.textChanged.connect(self._load_installments)
         layout.addWidget(self.search_edit)
