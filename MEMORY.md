@@ -94,6 +94,7 @@ get_current_month_installments()  # tabela rata ovog mjeseca
 - **0.16** - PaymentsPage: dodano "Obriši uplatu" dugme u historiji uplata
 - **0.17** - Sitni bugovi i cleanup (naslov, duplikati, print() linije)
 - **0.18** - Dashboard period filter uklonjen, CustomersPage fix extra query, SQLite WAL mode
+- **0.19** - ReportsPage pojednostavljeno: samo "Izvještaj naplate — Excel" generator
 
 ### SVG Ikonice (icons.py)
 **19 ikona:** dashboard, customers, orders, campaigns, payments, reports, settings, backup, pricelist, import, refresh, delete, save, cart, search, credit-card, chart, calendar, alert
@@ -347,6 +348,20 @@ def _delete_payment(self, payment_id: int, iznos: str) -> None:
 def get_customer(customer_id: int) -> Optional[Customer]:
     """Dohvaća jednog kupca po ID-u."""
 ```
+
+### ReportsPage Pojednostavljenje (v0.19)
+
+**Prije:** Dva bloka na stranici Izvještaji:
+1. "Izvještaji — mjesečne uplate" — tabela + eksport u Excel
+2. "Izvještaj naplate — Excel" — kompleksni Excel generator
+
+**Sada:** Samo drugi blok (kompleksni Excel generator)
+
+**Napomena:** `ReportService` i `ExcelReports` ostaju u kodu jer se mogu koristiti u budućnosti.
+
+**Fajlovi:**
+- `app/gui/pages/reports_page.py` — samo `_build_naplata_card()`
+- `app/reports/naplata_report.py` — generator Excel izvještaja
 
 ### Narudžbe - Broj Rata
 ```python
