@@ -90,6 +90,7 @@ get_current_month_installments()  # tabela rata ovog mjeseca
 - **0.12** - PaymentsPage redizajn: filteri, panel za uplatu, historija uplata
 - **0.13** - Excel izvještaj naplate: format "EVIDENCIJA O UPLATAMA RATA"
 - **0.14** - Fix N+1 query u sync_statuses(), uklonjen mrtav kod iz PaymentService
+- **0.15** - InstallmentsPage: prava stranica za pregled svih rata (zamjena placeholder-a)
 
 ### SVG Ikonice (icons.py)
 **19 ikona:** dashboard, customers, orders, campaigns, payments, reports, settings, backup, pricelist, import, refresh, delete, save, cart, search, credit-card, chart, calendar, alert
@@ -245,6 +246,48 @@ Iz `app/services/payment_service.py` uklonjeno:
 - `list_payments()` (~30 linija)
 
 Ove metode se nisu koristile u aktivnom GUI kodu (samo u `payments_page_backup.py`).
+
+### InstallmentsPage (v0.15)
+
+**Fajl:** `app/gui/pages/installments_page.py`
+
+**Layout:**
+- **Toolbar:**
+  - QComboBox: "Svi kupci" (filter po kupcu)
+  - QLineEdit: Pretraga po kupcu ili artiklu
+  - Tab dugmad: ⚠ Kasne rate, 📅 Ovaj mjesec, 💳 Sve neplaćene, ☰ Sve rate
+  - Dugme: "↻ Osvježi"
+
+- **Lijevo panel:** Tabela rata (7 kolona)
+  - Kupac, Artikal, Rata, Dospijeće, Iznos (KM), Plaćeno (KM), Status
+
+- **Desno panel:** Detalji rate (read-only)
+  - Ime kupca, artikal, broj rate, dospijeće
+  - Status badge (boja po statusu)
+  - Iznosi: Rata, Plaćeno, Preostalo
+
+**Statusi i boje:**
+```python
+_STATUS_COLOR = {
+    "pending":        ("#f59e0b", "#fffbeb"),   # žuta
+    "partially_paid": ("#3b82f6", "#eff6ff"),   # plava
+    "paid":           ("#10b981", "#f0fdf4"),   # zelena
+    "overdue":        ("#ef4444", "#fef2f2"),   # crvena
+    "cancelled":      ("#9ca3af", "#f9fafb"),   # siva
+}
+
+_STATUS_LABEL = {
+    "pending":        "Na čekanju",
+    "partially_paid": "Djelimično",
+    "paid":           "Plaćeno",
+    "overdue":        "Kasni",
+    "cancelled":      "Otkazano",
+}
+```
+
+**Service:** Koristi isti `PaymentService.get_installments_for_payment()` kao i `PaymentsPage`.
+
+**Napomena:** Stranica je read-only (samo pregled). Uplata se radi na stranici "Uplate".
 
 ### Narudžbe - Broj Rata
 ```python
