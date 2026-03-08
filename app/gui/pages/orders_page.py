@@ -490,7 +490,6 @@ class OrdersPage(QWidget):
         validation_error = self._validate_form()
         if validation_error:
             self._show_message(validation_error, error=True)
-            print(f"Validacija greška: {validation_error}")
             return
 
         customer_id = self.customer_combo.currentData()
@@ -505,8 +504,6 @@ class OrdersPage(QWidget):
 
         price = self.price_input.text()
         installments = self.installments_combo.currentIndex() + 1
-
-        print(f"Čuvanje narudžbe: customer_id={customer_id}, campaign_id={campaign_id}, product={product_name}, price={price}, installments={installments}")
 
         try:
             order = self.order_service.create_order(
@@ -533,12 +530,8 @@ class OrdersPage(QWidget):
             self._load_orders()
 
         except ValueError as e:
-            print(f"ValueError: {e}")
             self._show_message(str(e), error=True)
         except Exception as e:
-            print(f"Exception: {e}")
-            import traceback
-            traceback.print_exc()
             self._show_message(f"Greška pri čuvanju: {str(e)}", error=True)
 
     def _validate_form(self) -> Optional[str]:

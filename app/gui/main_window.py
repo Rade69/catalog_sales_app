@@ -34,7 +34,7 @@ from app.services.historical_import_service import HistoricalImportService
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("Kataloška prodaja — pregled koncepta")
+        self.setWindowTitle("Kataloška prodaja")
         self.resize(1440, 900)
         self.setStyleSheet(APP_STYLESHEET)
 
@@ -96,12 +96,7 @@ class MainWindow(QMainWindow):
             btn = self._create_nav_button(name, index, self.nav_icons[index])
             layout.addWidget(btn)
             self.nav_buttons.append(btn)
-
-            # Dodaj stranicu u stack (osim Postavke koji je inline widget)
-            if index < 7:
-                self.stack.addWidget(page)
-            else:
-                self.stack.addWidget(self._create_settings_page())
+            self.stack.addWidget(page)
 
         layout.addStretch(1)
 

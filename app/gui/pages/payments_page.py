@@ -411,45 +411,31 @@ class PaymentsPage(QWidget):
             )
         
         self.customer_combo.blockSignals(False)
-        print(f"Učitano {self.customer_combo.count()} kupaca u dropdown")
 
     def _load_installments(self) -> None:
         """Učitava rate sa filtrima."""
         # Dobavi ID odabranog kupca
         customer_id = self.customer_combo.currentData()
-        
+
         # Dobavi tekst pretrage
         search_text = self.search_edit.text().strip()
-        
-        print(f"_load_installments: filter={self._active_filter}, customer_id={customer_id}, search='{search_text}'")
-        
+
         try:
             installments = PaymentService.get_installments_for_payment(
                 filter_type=self._active_filter,
                 search=search_text,
                 customer_id=customer_id
             )
-            print(f"  Vraćeno {len(installments)} rata")
-            if installments:
-                # Provjeri da li su podaci učitani
-                inst = installments[0]
-                order = getattr(inst, 'order', None)
-                customer = getattr(order, 'customer', None) if order else None
-                print(f"  Prva rata: order={order is not None}, customer={customer is not None if order else 'N/A'}, _paid_amount_value={getattr(inst, '_paid_amount_value', 'N/A')}")
-        except TypeError as e:
+        except TypeError:
             # Starija verzija servisa ne podržava customer_id
-            print(f"  TypeError: {e}, pokušavam bez customer_id...")
             try:
                 installments = PaymentService.get_installments_for_payment(
                     filter_type=self._active_filter,
                     search=search_text
                 )
-                print(f"  Vraćeno {len(installments)} rata (bez customer_id)")
-            except Exception as e2:
-                print(f"  Greška: {e2}")
+            except Exception:
                 installments = []
-        except Exception as e:
-            print(f"  Greška: {e}")
+        except Exception:
             installments = []
 
         self._populate_table(installments)
@@ -531,7 +517,6 @@ class PaymentsPage(QWidget):
         self._active_filter = key
         # Eksplicitno čitaj customer_id prije učitavanja
         self._selected_customer_id = self.customer_combo.currentData()
-        print(f"Filter: {key}, customer_id: {self._selected_customer_id}, customer_name: {self.customer_combo.currentText()}")
         self._load_installments()
 
     def _apply_filters(self) -> None:
