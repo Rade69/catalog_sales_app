@@ -258,3 +258,28 @@ class OrderService:
             session.delete(order)
 
             return True
+
+    @staticmethod
+    def get_orders_for_customer(customer_id: int) -> List[Order]:
+        """
+        Vraća sve narudžbe za odabranog kupca,
+        sortirano od najnovije ka najstarijoj.
+        """
+        with session_scope() as session:
+            stmt = (
+                select(Order)
+                .options(
+                    selectinload(Order.installments),
+                )
+                .where(Order.customer_id == customer_id)
+                .order_by(Order.order_date.desc())
+            )
+            orders = list(session.execute(stmt).scalars().all())
+            for order in orders:
+                for inst in list(order.installments):
+                    try:
+                        session.expunge(inst)
+                    except Exception:
+                        pass
+                session.expunge(order)
+            return orders
