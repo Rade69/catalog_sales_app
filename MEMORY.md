@@ -147,8 +147,12 @@ get_payments_for_installment(installment_id: int) -> list
 
 ### PaymentsPage Redizajn (v0.12)
 
+**Toolbar:**
+- QComboBox: "Svi kupci" (padajući meni za filtriranje po kupcu)
+- QLineEdit: Pretraga po kupcu ili artiklu (radi na textChanged)
+- Filteri: Sve rate, Kasne, Ovaj mjesec, Neplaćene (svi rade)
+
 **Layout:**
-- Toolbar: Search + filteri (Sve, Kasne, Ovaj mjesec, Neplaćene)
 - Lijevo: Tabela rata (Kupac, Artikal, Rata, Dospijeće, Iznos, Plaćeno, Status)
 - Desno: Info panel + Forma za uplatu + Historija uplata
 
@@ -158,6 +162,15 @@ get_payments_for_installment(installment_id: int) -> list
 - Datum (QDateEdit)
 - Napomena (QTextEdit)
 - Dugmad: "💳 Evidentiraj uplatu", "Očisti"
+
+**Service:**
+```python
+PaymentService.get_installments_for_payment(
+    filter_type='overdue|month|unpaid|all',
+    search='',
+    customer_id=None  # Novo: filtriranje po kupcu
+)
+```
 
 ### Fix DetachedInstanceError
 ```python
