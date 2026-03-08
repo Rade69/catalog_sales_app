@@ -92,6 +92,8 @@ get_current_month_installments()  # tabela rata ovog mjeseca
 - **0.14** - Fix N+1 query u sync_statuses(), uklonjen mrtav kod iz PaymentService
 - **0.15** - InstallmentsPage: prava stranica za pregled svih rata (zamjena placeholder-a)
 - **0.16** - PaymentsPage: dodano "Obriši uplatu" dugme u historiji uplata
+- **0.17** - Sitni bugovi i cleanup (naslov, duplikati, print() linije)
+- **0.18** - Dashboard period filter uklonjen, CustomersPage fix extra query, SQLite WAL mode
 
 ### SVG Ikonice (icons.py)
 **19 ikona:** dashboard, customers, orders, campaigns, payments, reports, settings, backup, pricelist, import, refresh, delete, save, cart, search, credit-card, chart, calendar, alert
@@ -316,6 +318,35 @@ def _delete_payment(self, payment_id: int, iznos: str) -> None:
 **Napomena:** `PaymentService.delete_payment()` automatski ažurira:
 - Status rate (paid → partially_paid ili overdue)
 - Status narudžbe (completed → active)
+
+### Cleanup i WAL Mode (v0.17-v0.18)
+
+**v0.17 — Sitni bugovi:**
+- Naslov prozora: "Kataloška prodaja — pregled koncepta" → "Kataloška prodaja"
+- Uklonjeno duplo kreiranje `_create_settings_page()`
+- Uklonjeni svi `print()` debug pozivi iz `orders_page.py` i `payments_page.py`
+
+**v0.18 — Performance i cleanup:**
+- **Dashboard:** Uklonjen `period_combo` dropdown (nije bio implementiran)
+- **CustomersPage:** Fix extra query pri kliku na kupca
+  - Prije: `list_customers()` se zvao ponovo za svaki klik
+  - Sada: `get_customer(customer_id)` — direktan upit po ID-u
+- **SQLite WAL mode:**
+  ```python
+  PRAGMA journal_mode=WAL
+  PRAGMA synchronous=NORMAL
+  ```
+  - Omogućava čitanje tokom pisanja bez blokiranja
+  - Bolje performanse pri istovremenom čitanju/pisanju
+
+### Nova Servisna Metoda (v0.18)
+
+**CustomerService:**
+```python
+@staticmethod
+def get_customer(customer_id: int) -> Optional[Customer]:
+    """Dohvaća jednog kupca po ID-u."""
+```
 
 ### Narudžbe - Broj Rata
 ```python
