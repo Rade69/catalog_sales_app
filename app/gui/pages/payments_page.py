@@ -506,7 +506,7 @@ class PaymentsPage(QWidget):
             self.installments_table.setItem(i, 5, paid_item)
 
             # Status badge
-            status_val = inst.status.value if hasattr(type(inst.status), 'value') else str(inst.status)
+            status_val = inst.status.value if hasattr(inst.status, 'value') else str(inst.status)
             label, bg, fg = STATUS_STYLE.get(status_val, ("?", "#f3f4f6", "#374151"))
             status_item = QTableWidgetItem(label)
             status_item.setTextAlignment(Qt.AlignCenter)

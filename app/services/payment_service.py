@@ -193,7 +193,7 @@ class PaymentService:
                 installment_id=installment.id,
                 payment_date=payment_date,
                 amount=amount_decimal,
-                note=note.strip() or None,
+                note=(note.strip() if note else None) or None,
             )
             session.add(payment)
             session.flush()
@@ -306,14 +306,20 @@ class PaymentService:
 
             installments = list(session.execute(stmt).scalars().unique())
 
-            # Izračunaj paid_amount za svaku ratu i sačuvaj u _paid_amount_value
-            # Ne radimo expunge - session će sam zatvoriti i objekti će biti detached
-            # ali će podaci već biti učitani zahvaljujući selectinload
+            # Izračunaj paid_amount i dotakni sve relacije dok je sesija otvorena
             for inst in installments:
+                # Dotakni relacije da bi se učitale u memoriju
+                _ = inst.order
+                if inst.order:
+                    _ = inst.order.customer
                 paid = sum(
                     (p.amount for p in inst.payments), Decimal("0.00")
                 )
                 object.__setattr__(inst, '_paid_amount_value', paid)
+
+            # Expunge sve objekte prije zatvaranja sesije da bi expire_on_commit
+            # ne invalidirao već učitane atribute
+            session.expunge_all()
 
             return installments
 
@@ -330,8 +336,13 @@ class PaymentService:
             )
             if not inst:
                 return None
+            # Dotakni relacije dok je sesija otvorena
+            _ = inst.order
+            if inst.order:
+                _ = inst.order.customer
             paid = sum((p.amount for p in inst.payments), Decimal("0.00"))
             object.__setattr__(inst, '_paid_amount_value', paid)
+            session.expunge_all()
             return inst
 
     @staticmethod
