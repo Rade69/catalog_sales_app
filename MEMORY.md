@@ -97,6 +97,7 @@ get_current_month_installments()  # tabela rata ovog mjeseca
 - **0.19** - ReportsPage pojednostavljeno: samo "Izvještaj naplate — Excel" generator
 - **0.20** - CustomersPage redizajn: master-detail sa listom narudžbi kupca
 - **0.21** - OrdersPage: dodano polje "Broj ugovora" (contract_number) u formu i tabelu
+- **0.22** - Pretraga po broju ugovora u Uplatama i Ratama (PaymentsPage, InstallmentsPage)
 
 ### SVG Ikonice (icons.py)
 **19 ikona:** dashboard, customers, orders, campaigns, payments, reports, settings, backup, pricelist, import, refresh, delete, save, cart, search, credit-card, chart, calendar, alert
@@ -417,6 +418,24 @@ OrderService.create_order(
 
 **Model:**
 - `Order.contract_number` — VARCHAR, nullable
+
+### Pretraga po Broju Ugovora (v0.22)
+
+**PaymentService:**
+```python
+PaymentService.get_installments_for_payment(
+    filter_type='overdue|month|unpaid|all',
+    search='4-1-11',  # Pretražuje: kupac, artikal, contract_number
+    customer_id=None
+)
+```
+
+**UI Placeholder:**
+- "🔍 Pretraži po kupcu, artiklu ili br. ugovora..."
+
+**Stranice:**
+- `PaymentsPage` (Uplate)
+- `InstallmentsPage` (Rate)
 
 ### Narudžbe - Broj Rata
 ```python
