@@ -6,7 +6,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
 
 from sqlalchemy import or_, select
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 
 from app.database.database import session_scope
 from app.database.models import Campaign, Customer, Installment, InstallmentStatus, Order, OrderStatus, Payment
@@ -257,10 +257,10 @@ class PaymentService:
             stmt = (
                 select(Installment)
                 .join(Order, Installment.order_id == Order.id)
-                .join(Customer, Installment.order.has(Order.customer_id == Customer.id))
+                .join(Customer, Order.customer_id == Customer.id)
                 .options(
-                    joinedload(Installment.order).joinedload(Order.customer),
-                    joinedload(Installment.payments),
+                    selectinload(Installment.order).selectinload(Order.customer),
+                    selectinload(Installment.payments),
                 )
             )
 
@@ -307,17 +307,13 @@ class PaymentService:
             installments = list(session.execute(stmt).scalars().unique())
 
             # Izračunaj paid_amount za svaku ratu i sačuvaj u _paid_amount_value
-            # Expunge-uj sve objekte da ostanu upotrebljivi van sesije
+            # Ne radimo expunge - session će sam zatvoriti i objekti će biti detached
+            # ali će podaci već biti učitani zahvaljujući selectinload
             for inst in installments:
                 paid = sum(
                     (p.amount for p in inst.payments), Decimal("0.00")
                 )
                 object.__setattr__(inst, '_paid_amount_value', paid)
-                # Expunge order i customer eksplicitno
-                if inst.order and inst.order.customer:
-                    session.expunge(inst.order.customer)
-                    session.expunge(inst.order)
-                session.expunge(inst)
 
             return installments
 
@@ -327,13 +323,15 @@ class PaymentService:
         with session_scope() as session:
             inst = session.get(
                 Installment, installment_id,
-                options=[joinedload(Installment.payments)]
+                options=[
+                    selectinload(Installment.order).selectinload(Order.customer),
+                    selectinload(Installment.payments),
+                ]
             )
             if not inst:
                 return None
             paid = sum((p.amount for p in inst.payments), Decimal("0.00"))
             object.__setattr__(inst, '_paid_amount_value', paid)
-            session.expunge(inst)
             return inst
 
     @staticmethod
