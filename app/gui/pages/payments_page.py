@@ -429,6 +429,12 @@ class PaymentsPage(QWidget):
                 customer_id=customer_id
             )
             print(f"  Vraćeno {len(installments)} rata")
+            if installments:
+                # Provjeri da li su podaci učitani
+                inst = installments[0]
+                order = getattr(inst, 'order', None)
+                customer = getattr(order, 'customer', None) if order else None
+                print(f"  Prva rata: order={order is not None}, customer={customer is not None if order else 'N/A'}, _paid_amount_value={getattr(inst, '_paid_amount_value', 'N/A')}")
         except TypeError as e:
             # Starija verzija servisa ne podržava customer_id
             print(f"  TypeError: {e}, pokušavam bez customer_id...")
@@ -461,24 +467,18 @@ class PaymentsPage(QWidget):
         today = date.today()
 
         for i, inst in enumerate(installments):
-            # Kupac
-            kupac = ""
-            if hasattr(inst, 'order') and inst.order and hasattr(inst.order, 'customer'):
-                kupac = inst.order.customer.full_name if inst.order.customer else ""
-            elif hasattr(inst, 'customer_name'):
-                kupac = inst.customer_name
+            # Kupac - koristi getattr da izbjegne lazy loading na detached objektu
+            order = getattr(inst, 'order', None)
+            customer = getattr(order, 'customer', None) if order else None
+            kupac = customer.full_name if customer else ""
             self.installments_table.setItem(i, 0, QTableWidgetItem(kupac))
 
             # Artikal
-            artikal = ""
-            if hasattr(inst, 'order') and inst.order:
-                artikal = inst.order.product_name_snapshot or ""
-            elif hasattr(inst, 'product_name'):
-                artikal = inst.product_name
+            artikal = order.product_name_snapshot if order else ""
             self.installments_table.setItem(i, 1, QTableWidgetItem(artikal))
 
             # Rata N/M
-            total = inst.order.installments_count if hasattr(inst, 'order') and inst.order else "?"
+            total = order.installments_count if order else "?"
             rata_item = QTableWidgetItem(f"{inst.installment_number}/{total}")
             rata_item.setTextAlignment(Qt.AlignCenter)
             rata_item.setData(Qt.UserRole, inst.id)
@@ -506,7 +506,7 @@ class PaymentsPage(QWidget):
             self.installments_table.setItem(i, 5, paid_item)
 
             # Status badge
-            status_val = inst.status.value if hasattr(inst.status, 'value') else str(inst.status)
+            status_val = inst.status.value if hasattr(type(inst.status), 'value') else str(inst.status)
             label, bg, fg = STATUS_STYLE.get(status_val, ("?", "#f3f4f6", "#374151"))
             status_item = QTableWidgetItem(label)
             status_item.setTextAlignment(Qt.AlignCenter)
