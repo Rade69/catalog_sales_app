@@ -86,6 +86,92 @@ get_current_month_installments()  # tabela rata ovog mjeseca
 - **0.8** - Cjenovnik sa supplier kolonom (prepoznavanje firme iz Excel-a)
 - **0.9** - Sidebar redizajn (SVG ikonice, Postavke sekcija, backup premješten)
 - **0.10** - Table helpers (konzistentan stil tabela, empty state, numeric items)
+- **0.11** - Dashboard v2: tamno plavi sidebar/topbar, SVG ikonice na dugmad, delete funkcije
+- **0.12** - PaymentsPage redizajn: filteri, panel za uplatu, historija uplata
+
+### SVG Ikonice (icons.py)
+**19 ikona:** dashboard, customers, orders, campaigns, payments, reports, settings, backup, pricelist, import, refresh, delete, save, cart, search, credit-card, chart, calendar, alert
+
+**Helper funkcije:**
+```python
+get_icon(icon_name, color, size) -> QIcon
+get_pixmap(icon_name, color, size) -> QPixmap
+create_icon_label(icon_name, color, size) -> QLabel
+```
+
+### Dashboard - Redizajn v2 (v0.11)
+
+**Sidebar:**
+- Gradijent: `#1e3c72` → `#2a5298`
+- Širina: 220px
+- Backup dugme na dnu (☁️)
+
+**TopBar:**
+- Pozadina: `#1f4f9f`
+- Naslov: "Prodajni Dashboard"
+- Dropdown: "Period: Ovaj mjesec"
+- Dugme: "+ Novo izvještaj"
+
+**Content (#f5f7fb, 30px padding):**
+- **RED 1** - 4 KPI kartice (border-left boje: plava, svijetlo plava, crvena, zelena)
+- **RED 2** - 2 status kartice (crvena za kasne, narandžasta za ovaj mjesec)
+- **RED 3** - 2 tabele u cardovima (Uplate po mjesecima, Rate ovog mjeseca)
+
+### Dugmad sa SVG ikonicama
+**Kampanje:** 📥 Uvezi pogodnosti, 🔄 Osvježi, 🗑️ Izbriši
+**Cjenovnik:** 📥 Uvezi cjenovnik
+**Narudžbe:** 💾 Sačuvaj, 🔄 Očisti, 🗑️ Obriši
+**Uplate:** 🔍 Pretraži, 🔴 Kasne, 📅 Ovaj mjesec, 💳 Evidentiraj
+
+### Nove Service Metode
+
+**OrderService:**
+```python
+delete_order(order_id: int) -> bool  # Briše narudžbu + rate + uplate
+get_order_details(order_id: int) -> Optional[Order]  # Sa expunge za customer i installments
+```
+
+**CampaignService:**
+```python
+delete_campaign(campaign_id: int) -> bool  # Briše kampanju + CampaignPrice
+```
+
+**PaymentService:**
+```python
+get_installments_for_payment(filter_type, search) -> list
+# filter_type: 'overdue', 'month', 'unpaid', 'all'
+
+get_installment_details(installment_id: int)
+get_payments_for_installment(installment_id: int) -> list
+```
+
+### PaymentsPage Redizajn (v0.12)
+
+**Layout:**
+- Toolbar: Search + filteri (Sve, Kasne, Ovaj mjesec, Neplaćene)
+- Lijevo: Tabela rata (Kupac, Artikal, Rata, Dospijeće, Iznos, Plaćeno, Status)
+- Desno: Info panel + Forma za uplatu + Historija uplata
+
+**Forma za uplatu:**
+- Iznos (QDoubleSpinBox)
+- Brza dugmad: "Uplati puni iznos", "Uplati preostalo"
+- Datum (QDateEdit)
+- Napomena (QTextEdit)
+- Dugmad: "💳 Evidentiraj uplatu", "Očisti"
+
+### Fix DetachedInstanceError
+```python
+# U create_order() i get_order_details()
+session.expunge(order)  # Da objekat ostane upotrebljiv van sesije
+```
+
+### Narudžbe - Broj Rata
+```python
+# QComboBox umjesto QSpinBox
+self.installments_combo = QComboBox()
+self.installments_combo.addItems([f"{i} rata" for i in range(1, 11)])
+installments = self.installments_combo.currentIndex() + 1
+```
 
 ### Ključne Implementacije
 
