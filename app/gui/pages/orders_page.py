@@ -156,6 +156,16 @@ class OrdersPage(QWidget):
         self.installments_combo.currentIndexChanged.connect(self._update_preview)
         fields_layout.addWidget(self.installments_combo, 2, 1)
 
+        # Red 3: Broj ugovora (opciono)
+        fields_layout.addWidget(QLabel("Broj ugovora:"), 2, 2)
+        self.contract_number_input = QLineEdit()
+        self.contract_number_input.setPlaceholderText("npr. 4-1-11-2-1-3 (opciono)")
+        self.contract_number_input.setMinimumWidth(200)
+        self.contract_number_input.setToolTip(
+            "Broj ugovora sa kupcem — opciono polje, ali važno za praćenje"
+        )
+        fields_layout.addWidget(self.contract_number_input, 2, 3)
+
         # Spacer
         fields_layout.setColumnStretch(2, 1)
         fields_layout.setColumnStretch(3, 1)
@@ -280,19 +290,20 @@ class OrdersPage(QWidget):
 
         # Tabela
         self.table = QTableWidget()
-        self.table.setColumnCount(7)
+        self.table.setColumnCount(8)
         self.table.setHorizontalHeaderLabels([
-            "ID", "Kupac", "Proizvod", "Cijena", "Rate", "Datum", "Status"
+            "ID", "Br. ugovora", "Kupac", "Proizvod", "Cijena", "Rate", "Datum", "Status"
         ])
 
         # Konfiguracija tabele
         header = self.table.horizontalHeader()
-        header.setSectionResizeMode(1, QHeaderView.Stretch)  # type: ignore[arg-type]  # Kupac
-        header.setSectionResizeMode(2, QHeaderView.Stretch)  # type: ignore[arg-type]  # Proizvod
-        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # type: ignore[arg-type]  # Cijena
-        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # type: ignore[arg-type]  # Rate
-        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # type: ignore[arg-type]  # Datum
-        header.setSectionResizeMode(6, QHeaderView.ResizeToContents)  # type: ignore[arg-type]  # Status
+        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)  # type: ignore[arg-type]  # Br. ugovora
+        header.setSectionResizeMode(2, QHeaderView.Stretch)  # type: ignore[arg-type]  # Kupac
+        header.setSectionResizeMode(3, QHeaderView.Stretch)  # type: ignore[arg-type]  # Proizvod
+        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # type: ignore[arg-type]  # Cijena
+        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # type: ignore[arg-type]  # Rate
+        header.setSectionResizeMode(6, QHeaderView.ResizeToContents)  # type: ignore[arg-type]  # Datum
+        header.setSectionResizeMode(7, QHeaderView.ResizeToContents)  # type: ignore[arg-type]  # Status
 
         style_table(self.table)
 
@@ -423,32 +434,40 @@ class OrdersPage(QWidget):
         self.table.setRowCount(len(orders))
 
         for row, order in enumerate(orders):
-            # ID
+            # ID (col 0)
             id_item = QTableWidgetItem(str(order.id))
             id_item.setTextAlignment(Qt.AlignCenter)  # type: ignore[arg-type]
             self.table.setItem(row, 0, id_item)
 
-            # Kupac
+            # Br. ugovora (col 1) — NOVO
+            contract = order.contract_number or "—"
+            contract_item = QTableWidgetItem(contract)
+            contract_item.setTextAlignment(Qt.AlignCenter)  # type: ignore[arg-type]
+            if order.contract_number:
+                contract_item.setForeground(QColor("#1d4ed8"))  # Plava ako postoji
+            self.table.setItem(row, 1, contract_item)
+
+            # Kupac (col 2)
             customer_name = order.customer.full_name if order.customer else "N/A"
-            self.table.setItem(row, 1, QTableWidgetItem(customer_name))
+            self.table.setItem(row, 2, QTableWidgetItem(customer_name))
 
-            # Proizvod
-            self.table.setItem(row, 2, QTableWidgetItem(order.product_name_snapshot))
+            # Proizvod (col 3)
+            self.table.setItem(row, 3, QTableWidgetItem(order.product_name_snapshot))
 
-            # Cijena
-            self.table.setItem(row, 3, create_numeric_item(order.total_price_snapshot, " KM"))
+            # Cijena (col 4)
+            self.table.setItem(row, 4, create_numeric_item(order.total_price_snapshot, " KM"))
 
-            # Broj rata
+            # Broj rata (col 5)
             installments_item = QTableWidgetItem(f"{order.installments_count}")
             installments_item.setTextAlignment(Qt.AlignCenter)  # type: ignore[arg-type]
-            self.table.setItem(row, 4, installments_item)
+            self.table.setItem(row, 5, installments_item)
 
-            # Datum
+            # Datum (col 6)
             date_item = QTableWidgetItem(order.order_date.strftime("%d.%m.%Y"))
             date_item.setTextAlignment(Qt.AlignCenter)  # type: ignore[arg-type]
-            self.table.setItem(row, 5, date_item)
+            self.table.setItem(row, 6, date_item)
 
-            # Status
+            # Status (col 7)
             status_text = order.status.value.upper()
             status_item = QTableWidgetItem(status_text)
             status_item.setTextAlignment(Qt.AlignCenter)  # type: ignore[arg-type]
@@ -458,7 +477,7 @@ class OrdersPage(QWidget):
                 status_item.setForeground(QColor("#6b7280"))
             elif order.status.value == "cancelled":
                 status_item.setForeground(QColor("#dc2626"))
-            self.table.setItem(row, 6, status_item)
+            self.table.setItem(row, 7, status_item)
 
         # Auto-resize kolona
         self.table.resizeColumnsToContents()
@@ -512,6 +531,7 @@ class OrdersPage(QWidget):
                 price=price,
                 installments=installments,
                 campaign_id=campaign_id,
+                contract_number=self.contract_number_input.text().strip() or None,
             )
 
             self._show_message(
@@ -578,6 +598,7 @@ class OrdersPage(QWidget):
         self.product_combo.clearEditText()
         self.price_input.clear()
         self.installments_combo.setCurrentIndex(0)  # Reset na 1 ratu
+        self.contract_number_input.clear()
         self._update_preview()
         self.message_label.hide()
 

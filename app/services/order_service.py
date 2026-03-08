@@ -103,7 +103,8 @@ class OrderService:
         product_name: str,
         price: str,
         installments: int,
-        campaign_id: Optional[int] = None
+        campaign_id: Optional[int] = None,
+        contract_number: Optional[str] = None,
     ) -> Order:
         """
         Kreira novu narudžbu sa automatski generisanim ratama.
@@ -114,6 +115,7 @@ class OrderService:
             price: Cijena kao string (može biti sa zarezom)
             installments: Broj rata (1-10)
             campaign_id: ID kampanje (opciono, koristi se default ako nije navedeno)
+            contract_number: Broj ugovora (opciono)
 
         Returns:
             Kreirani Order objekat
@@ -150,7 +152,8 @@ class OrderService:
                 total_price_snapshot=price_decimal,
                 installments_count=installments,
                 status=OrderStatus.ACTIVE,
-                first_due_date=date.today() + relativedelta(months=1)
+                first_due_date=date.today() + relativedelta(months=1),
+                contract_number=contract_number.strip() if contract_number else None,  # NOVO
             )
 
             session.add(order)
