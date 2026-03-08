@@ -529,3 +529,31 @@ class CampaignService:
                     select(ImportSession).order_by(ImportSession.created_at.desc())
                 ).scalars().all()
             )
+
+    @staticmethod
+    def delete_campaign(campaign_id: int) -> bool:
+        """
+        Briše kampanju i sve pripadajuće proizvode (CampaignPrice).
+
+        Args:
+            campaign_id: ID kampanje za brisanje
+
+        Returns:
+            True ako je brisanje uspješno
+
+        Raises:
+            ValueError: Ako kampanja ne postoji
+        """
+        with session_scope() as session:
+            campaign = session.get(Campaign, campaign_id)
+            if campaign is None:
+                raise ValueError(f"Kampanja #{campaign_id} nije pronađena.")
+
+            # Prvo obriši sve CampaignPrice zapise
+            for cp in campaign.prices:
+                session.delete(cp)
+
+            # Zatim obriši kampanju
+            session.delete(campaign)
+
+            return True

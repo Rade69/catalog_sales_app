@@ -24,6 +24,7 @@ COLUMN_MAP: dict[str, list[str]] = {
     "discount_price": ["akcija", "discount", "sale", "discount price",
                        "sale price", "akcijska cijena", "promo"],
     "points":         ["bod", "bodovi", "points", "pts", "poeni"],
+    "status":         ["status", "stanje", "dostupnost", "aktuelnost"],
 }
 
 
@@ -207,24 +208,23 @@ class PriceListService:
                     continue
 
                 # Ovo je običan proizvod - dodijeli trenutnu firmu
+                def _safe_str(val) -> Optional[str]:
+                    if val is None:
+                        return None
+                    s = str(val).strip()
+                    return s if s and s.lower() != "nan" else None
+
                 item = PriceListItem(
                     price_list_id=price_list.id,
-                    row_number=_safe_int(get_val("row_number")) or (int(idx) + 1),
-                    supplier_code=(
-                        str(get_val("supplier_code")).strip()
-                        if get_val("supplier_code") and str(get_val("supplier_code")).strip() not in ("", "nan")
-                        else None
-                    ),
+                    row_number=int(idx),  # apsolutna pozicija u Excel-u — čuva originalni redoslijed
+                    supplier_code=_safe_str(get_val("supplier_code")),
                     name=name_str,
-                    brand=(
-                        str(get_val("brand")).strip()
-                        if get_val("brand") and str(get_val("brand")).strip() not in ("", "nan")
-                        else None
-                    ),
-                    supplier=current_supplier,  # Dodijeli trenutnu firmu
+                    brand=_safe_str(get_val("brand")),
+                    supplier=current_supplier,
                     regular_price=_safe_decimal(get_val("regular_price")),
                     discount_price=_safe_decimal(get_val("discount_price")),
                     points=_safe_int(get_val("points")),
+                    status=_safe_str(get_val("status")),
                 )
                 session.add(item)
                 imported += 1

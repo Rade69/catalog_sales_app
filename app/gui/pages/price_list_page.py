@@ -6,9 +6,9 @@ from typing import Optional
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
+    QComboBox,
     QFileDialog,
     QFrame,
-    QGroupBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -16,7 +16,6 @@ from PySide6.QtWidgets import (
     QMenu,
     QMessageBox,
     QPushButton,
-    QSplitter,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -24,8 +23,9 @@ from PySide6.QtWidgets import (
 )
 
 from app.database.models import PriceList, PriceListItem
-from app.gui.table_helpers import style_table, show_empty_state, create_numeric_item
+from app.gui.table_helpers import style_table, create_numeric_item
 from app.services.price_list_service import PriceListService
+from app.gui.icons import create_icon_label, get_pixmap
 
 
 class _ImportWorker(QThread):
@@ -56,8 +56,8 @@ class PriceListPage(QWidget):
     def __init__(self) -> None:
         super().__init__()
 
-        self._selected_price_list_id: Optional[int] = None
-        self._selected_price_list_name: Optional[str] = None
+        self._price_lists: list[PriceList] = []
+        self._all_items: list[PriceListItem] = []
         self._excel_path: Optional[str] = None
         self._import_worker: Optional[_ImportWorker] = None
 
@@ -71,52 +71,53 @@ class PriceListPage(QWidget):
     def _init_ui(self) -> None:
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(12)
+        root.setSpacing(8)
 
-        root.addWidget(self._build_import_bar())
+        root.addWidget(self._build_top_bar())
+        root.addWidget(self._build_selector_bar())
         root.addWidget(self._build_status_banner())
+        root.addWidget(self._build_items_panel(), 1)
 
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.addWidget(self._build_lists_panel())
-        splitter.addWidget(self._build_items_panel())
-        splitter.setStretchFactor(0, 1)
-        splitter.setStretchFactor(1, 3)
-
-        root.addWidget(splitter, 1)
-
-    def _build_import_bar(self) -> QFrame:
+    def _build_top_bar(self) -> QFrame:
+        """Import traka: naziv + fajl + dugme."""
         bar = QFrame()
         bar.setProperty("card", True)
 
         layout = QHBoxLayout(bar)
-        layout.setContentsMargins(16, 12, 16, 12)
-        layout.setSpacing(12)
+        layout.setContentsMargins(16, 10, 16, 10)
+        layout.setSpacing(10)
 
-        layout.addWidget(QLabel("Naziv:"))
+        lbl_naziv = QLabel("Naziv:")
+        lbl_naziv.setFixedWidth(46)
+        layout.addWidget(lbl_naziv)
+
         self.name_edit = QLineEdit()
         self.name_edit.setPlaceholderText("npr. Cjenovnik Mart 2026")
-        self.name_edit.setMaximumWidth(220)
+        self.name_edit.setFixedWidth(200)
         layout.addWidget(self.name_edit)
 
-        layout.addWidget(QLabel("Excel fajl:"))
+        lbl_fajl = QLabel("Fajl:")
+        lbl_fajl.setFixedWidth(30)
+        layout.addWidget(lbl_fajl)
+
         self.excel_label = QLabel("Nije odabran fajl")
         self.excel_label.setStyleSheet("color: #9ca3af; font-style: italic;")
-        self.excel_label.setMinimumWidth(180)
         layout.addWidget(self.excel_label, 1)
 
-        browse_btn = QPushButton("Odaberi fajl...")
+        browse_btn = QPushButton("Odaberi...")
         browse_btn.setProperty("secondary", True)
+        browse_btn.setFixedWidth(90)
         browse_btn.clicked.connect(self._browse_excel)
         layout.addWidget(browse_btn)
 
-        self.import_btn = QPushButton("Importuj cjenovnik")
+        self.import_btn = QPushButton("Uvezi cjenovnik")
         self.import_btn.setStyleSheet("""
             QPushButton {
                 background: #059669;
                 color: white;
                 border: none;
                 border-radius: 6px;
-                padding: 8px 18px;
+                padding: 8px 16px;
                 font-weight: 700;
                 font-size: 13px;
             }
@@ -125,7 +126,62 @@ class PriceListPage(QWidget):
             QPushButton:disabled { background: #d1d5db; color: #9ca3af; }
         """)
         self.import_btn.clicked.connect(self._run_import)
+        import_pixmap = get_pixmap("import", "#ffffff", 18)
+        self.import_btn.setIcon(import_pixmap)
         layout.addWidget(self.import_btn)
+
+        return bar
+
+    def _build_selector_bar(self) -> QFrame:
+        """Traka za odabir cjenovnika + brisanje."""
+        bar = QFrame()
+        bar.setProperty("card", True)
+
+        layout = QHBoxLayout(bar)
+        layout.setContentsMargins(16, 8, 16, 8)
+        layout.setSpacing(10)
+
+        lbl = QLabel("Cjenovnik:")
+        lbl.setFixedWidth(80)
+        layout.addWidget(lbl)
+
+        self.price_list_combo = QComboBox()
+        self.price_list_combo.setMinimumWidth(280)
+        self.price_list_combo.setPlaceholderText("— Odaberi cjenovnik —")
+        self.price_list_combo.currentIndexChanged.connect(self._on_combo_changed)
+        layout.addWidget(self.price_list_combo, 1)
+
+        self.items_count_label = QLabel("")
+        self.items_count_label.setStyleSheet("color: #6b7280; font-size: 12px;")
+        layout.addWidget(self.items_count_label)
+
+        layout.addStretch(1)
+
+        # Pretraga
+        self.items_search = QLineEdit()
+        self.items_search.setPlaceholderText("Pretraži po nazivu, šifri ili firmi...")
+        self.items_search.setFixedWidth(240)
+        self.items_search.textChanged.connect(self._filter_items)
+        layout.addWidget(self.items_search)
+
+        # Brisanje
+        self.delete_btn = QPushButton("Obriši")
+        self.delete_btn.setStyleSheet("""
+            QPushButton {
+                background: #dc2626;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 6px 14px;
+                font-weight: 600;
+                font-size: 12px;
+            }
+            QPushButton:hover { background: #b91c1c; }
+            QPushButton:disabled { background: #d1d5db; color: #9ca3af; }
+        """)
+        self.delete_btn.setEnabled(False)
+        self.delete_btn.clicked.connect(self._confirm_and_delete)
+        layout.addWidget(self.delete_btn)
 
         return bar
 
@@ -139,81 +195,52 @@ class PriceListPage(QWidget):
                 color: #166534;
                 border: 1px solid #bbf7d0;
                 border-radius: 8px;
-                padding: 10px 14px;
+                padding: 8px 14px;
                 font-size: 13px;
             }
         """)
         return self.status_banner
 
-    def _build_lists_panel(self) -> QGroupBox:
-        group = QGroupBox("Uvezeni cjenovnici")
-        layout = QVBoxLayout(group)
-        layout.setSpacing(10)
+    def _build_items_panel(self) -> QWidget:
+        """Puna tabela stavki cjenovnika."""
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
-        self.lists_table = QTableWidget()
-        self.lists_table.setColumnCount(3)
-        self.lists_table.setHorizontalHeaderLabels(["ID", "Naziv", "Fajl"])
-        lh = self.lists_table.horizontalHeader()
-        lh.setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        lh.setSectionResizeMode(1, QHeaderView.Stretch)
-        lh.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        style_table(self.lists_table)
-        self.lists_table.itemSelectionChanged.connect(self._on_list_selected)
-
-        # Kontekstualni meni za brisanje (desni klik)
-        self.lists_table.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.lists_table.customContextMenuRequested.connect(self._show_context_menu)
-
-        layout.addWidget(self.lists_table)
-        return group
-
-    def _build_items_panel(self) -> QGroupBox:
-        group = QGroupBox("Stavke cjenovnika")
-        layout = QVBoxLayout(group)
-        layout.setSpacing(10)
-
-        # Header red: naziv + broj stavki
-        header_row = QHBoxLayout()
-        self.items_title = QLabel("Odaberi cjenovnik iz liste")
-        self.items_title.setStyleSheet("color: #6b7280; font-style: italic;")
-        header_row.addWidget(self.items_title)
-        header_row.addStretch(1)
-        self.items_count_label = QLabel("")
-        self.items_count_label.setStyleSheet("color: #6b7280; font-size: 12px;")
-        header_row.addWidget(self.items_count_label)
-        layout.addLayout(header_row)
-
-        # Pretraga
-        self.items_search = QLineEdit()
-        self.items_search.setPlaceholderText("Pretraži po nazivu ili šifri...")
-        self.items_search.textChanged.connect(self._filter_items)
-        self.items_search.setVisible(False)
-        layout.addWidget(self.items_search)
-
-        # Tabela stavki
         self.items_table = QTableWidget()
         self.items_table.setColumnCount(7)
+        # Redoslijed: Rb. | Firma | Naziv artikla | Šifra | Cijena (KM) | Bod | Status
         self.items_table.setHorizontalHeaderLabels([
-            "Rb.", "Firma", "Naziv", "Šifra", "Cijena (KM)", "Akcija (KM)", "Bod"
+            "Rb.", "Firma", "Naziv artikla", "Šifra", "Cijena (KM)", "Bod", "Status"
         ])
 
         header = self.items_table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.Stretch)
-        header.setMaximumSectionSize(420)
-        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        self.items_table.setColumnWidth(2, 110)
+        # Rb.
+        header.setSectionResizeMode(0, QHeaderView.Fixed)
+        self.items_table.setColumnWidth(0, 44)
+        # Firma: interaktivna — korisnik može resizati
+        header.setSectionResizeMode(1, QHeaderView.Interactive)
+        self.items_table.setColumnWidth(1, 150)
+        # Naziv: Stretch — uzima ostatak prostora
+        header.setSectionResizeMode(2, QHeaderView.Stretch)
+        header.setMinimumSectionSize(120)
+        # Šifra
         header.setSectionResizeMode(3, QHeaderView.Fixed)
-        self.items_table.setColumnWidth(3, 110)
+        self.items_table.setColumnWidth(3, 90)
+        # Cijena
         header.setSectionResizeMode(4, QHeaderView.Fixed)
-        self.items_table.setColumnWidth(4, 110)
+        self.items_table.setColumnWidth(4, 100)
+        # Bod — odmah pored Cijene
         header.setSectionResizeMode(5, QHeaderView.Fixed)
-        self.items_table.setColumnWidth(5, 70)
+        self.items_table.setColumnWidth(5, 60)
+        # Status
+        header.setSectionResizeMode(6, QHeaderView.Fixed)
+        self.items_table.setColumnWidth(6, 80)
 
         style_table(self.items_table)
-
-        layout.addWidget(self.items_table, 1)
-        return group
+        layout.addWidget(self.items_table)
+        return container
 
     # ------------------------------------------------------------------
     # Import logika
@@ -232,7 +259,6 @@ class PriceListPage(QWidget):
         filename = Path(file_path).name
         self.excel_label.setText(filename)
         self.excel_label.setStyleSheet("color: #059669; font-weight: bold;")
-        # Auto-popuni naziv ako je prazan
         if not self.name_edit.text().strip():
             self.name_edit.setText(Path(file_path).stem)
 
@@ -260,9 +286,9 @@ class PriceListPage(QWidget):
 
     def _on_import_finished(self, imported: int, skipped: int) -> None:
         self._reset_import_btn()
-        skip_text = f", preskočeno {skipped}" if skipped else ""
+        supplier_note = f" (+ {skipped} redova dobavljača/zaglavlja)" if skipped else ""
         self._show_success(
-            f"Import uspješan! Uvezeno <b>{imported}</b> stavki{skip_text}."
+            f"Import uspješan! Uvezeno <b>{imported}</b> stavki{supplier_note}."
         )
         self.name_edit.clear()
         self._excel_path = None
@@ -276,7 +302,7 @@ class PriceListPage(QWidget):
 
     def _reset_import_btn(self) -> None:
         self.import_btn.setEnabled(True)
-        self.import_btn.setText("Importuj cjenovnik")
+        self.import_btn.setText("Uvezi cjenovnik")
 
     def _show_success(self, text: str) -> None:
         self.status_banner.setText(text)
@@ -286,7 +312,7 @@ class PriceListPage(QWidget):
                 color: #166534;
                 border: 1px solid #bbf7d0;
                 border-radius: 8px;
-                padding: 10px 14px;
+                padding: 8px 14px;
                 font-size: 13px;
             }
         """)
@@ -300,76 +326,58 @@ class PriceListPage(QWidget):
                 color: #991b1b;
                 border: 1px solid #fecaca;
                 border-radius: 8px;
-                padding: 10px 14px;
+                padding: 8px 14px;
                 font-size: 13px;
             }
         """)
         self.status_banner.setVisible(True)
 
     # ------------------------------------------------------------------
-    # Lista cjenovnika
+    # Lista cjenovnika (combobox)
     # ------------------------------------------------------------------
 
     def _load_price_lists(self) -> None:
-        price_lists = PriceListService.list_all()
-        self.lists_table.setRowCount(0)
-        self.lists_table.setRowCount(len(price_lists))
-        for row, pl in enumerate(price_lists):
-            id_item = QTableWidgetItem(str(pl.id))
-            id_item.setTextAlignment(Qt.AlignCenter)
-            self.lists_table.setItem(row, 0, id_item)
+        self._price_lists = PriceListService.list_all()
 
-            self.lists_table.setItem(row, 1, QTableWidgetItem(pl.name))
+        self.price_list_combo.blockSignals(True)
+        self.price_list_combo.clear()
+        for pl in self._price_lists:
+            label = f"{pl.name}  ({pl.source_filename or '—'})"
+            self.price_list_combo.addItem(label, userData=pl.id)
+        self.price_list_combo.blockSignals(False)
 
-            # Skraćeni naziv fajla s tooltipom
-            filename = pl.source_filename or ""
-            short = filename if len(filename) <= 30 else filename[:27] + "..."
-            fajl_item = QTableWidgetItem(short)
-            fajl_item.setToolTip(filename)
-            self.lists_table.setItem(row, 2, fajl_item)
+        if self._price_lists:
+            self.price_list_combo.setCurrentIndex(0)
+            self._on_combo_changed(0)
+        else:
+            self.items_table.setRowCount(0)
+            self.items_count_label.setText("")
+            self.delete_btn.setEnabled(False)
 
-        self.lists_table.resizeColumnsToContents()
-
-    def _on_list_selected(self) -> None:
-        row = self.lists_table.currentRow()
-        if row < 0:
-            self._selected_price_list_id = None
-            self._selected_price_list_name = None
+    def _on_combo_changed(self, index: int) -> None:
+        if index < 0 or index >= len(self._price_lists):
+            self.delete_btn.setEnabled(False)
             return
-
-        id_item = self.lists_table.item(row, 0)
-        name_item = self.lists_table.item(row, 1)
-        if not id_item:
-            return
-
-        try:
-            self._selected_price_list_id = int(id_item.text())
-        except ValueError:
-            return
-
-        self._selected_price_list_name = name_item.text() if name_item else ""
-        self._load_items(self._selected_price_list_id, self._selected_price_list_name)
+        pl = self._price_lists[index]
+        self.delete_btn.setEnabled(True)
+        items = PriceListService.get_items(pl.id)
+        self._all_items = items
+        self._populate_items(items)
+        self.items_search.clear()
 
     # ------------------------------------------------------------------
-    # Kontekstualni meni (desni klik → brisanje)
+    # Brisanje
     # ------------------------------------------------------------------
-
-    def _show_context_menu(self, pos) -> None:
-        if self._selected_price_list_id is None:
-            return
-        menu = QMenu(self)
-        delete_action = menu.addAction("Obriši odabrani cjenovnik")
-        delete_action.setToolTip("Trajno briše cjenovnik i sve stavke")
-        action = menu.exec(self.lists_table.viewport().mapToGlobal(pos))
-        if action == delete_action:
-            self._confirm_and_delete()
 
     def _confirm_and_delete(self) -> None:
-        name = self._selected_price_list_name or f"ID={self._selected_price_list_id}"
+        index = self.price_list_combo.currentIndex()
+        if index < 0 or index >= len(self._price_lists):
+            return
+        pl = self._price_lists[index]
         reply = QMessageBox.question(
             self,
             "Potvrda brisanja",
-            f"Da li sigurno želiš obrisati cjenovnik '{name}' i sve njegove stavke?\n"
+            f"Da li sigurno želiš obrisati cjenovnik '{pl.name}' i sve njegove stavke?\n"
             "Ova radnja se ne može poništiti.",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No,
@@ -377,11 +385,8 @@ class PriceListPage(QWidget):
         if reply != QMessageBox.Yes:
             return
         try:
-            PriceListService.delete(self._selected_price_list_id)
-            self._selected_price_list_id = None
-            self._selected_price_list_name = None
+            PriceListService.delete(pl.id)
             self._load_price_lists()
-            self._clear_items_panel()
         except Exception as e:
             self._show_error(str(e))
 
@@ -389,77 +394,61 @@ class PriceListPage(QWidget):
     # Stavke cjenovnika
     # ------------------------------------------------------------------
 
-    def _load_items(self, price_list_id: int, name: str) -> None:
-        items = PriceListService.get_items(price_list_id)
-        self._populate_items(items)
-        self.items_title.setText(f"Stavke — {name}")
-        self.items_title.setStyleSheet("")
-        self.items_count_label.setText(f"{len(items)} stavki")
-        self.items_search.setVisible(True)
-        self.items_search.clear()
-
     def _populate_items(self, items: list[PriceListItem]) -> None:
         self.items_table.setRowCount(0)
         self.items_table.setRowCount(len(items))
 
         for i, item in enumerate(items):
-            # Rb.
-            rb = QTableWidgetItem(str(item.row_number) if item.row_number else str(i + 1))
+            # Rb. — sekvencijalni broj (1, 2, 3...) — ne iz Excela
+            rb = QTableWidgetItem(str(i + 1))
             rb.setTextAlignment(Qt.AlignCenter)
             self.items_table.setItem(i, 0, rb)
 
             # Firma
             supplier_item = QTableWidgetItem(item.supplier or "")
-            supplier_item.setTextAlignment(Qt.AlignCenter)
+            supplier_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
             self.items_table.setItem(i, 1, supplier_item)
 
-            # Naziv
+            # Naziv artikla
             self.items_table.setItem(i, 2, QTableWidgetItem(item.name))
 
             # Šifra
-            self.items_table.setItem(i, 3, QTableWidgetItem(item.supplier_code or ""))
+            code_item = QTableWidgetItem(item.supplier_code or "")
+            code_item.setTextAlignment(Qt.AlignCenter)
+            self.items_table.setItem(i, 3, code_item)
 
-            # Cijena
+            # Cijena (KM)
             self.items_table.setItem(i, 4, create_numeric_item(item.regular_price))
 
-            # Akcija — zelena boja ako postoji
-            disc_item = create_numeric_item(item.discount_price)
-            if item.discount_price is not None:
-                disc_item.setForeground(QColor("#059669"))
-            self.items_table.setItem(i, 5, disc_item)
+            # Bod — odmah pored Cijene
+            self.items_table.setItem(i, 5, create_numeric_item(item.points))
 
-            # Bod
-            bod_item = create_numeric_item(item.points)
-            self.items_table.setItem(i, 6, bod_item)
+            # Status — vrijednost iz Excel kolone STATUS (npr. "aktuelno")
+            status_text = item.status or ""
+            status_item = QTableWidgetItem(status_text)
+            status_item.setTextAlignment(Qt.AlignCenter)
+            self.items_table.setItem(i, 6, status_item)
+
+        self.items_count_label.setText(f"{len(items)} stavki")
 
     def _filter_items(self, text: str) -> None:
-        """Filtrira redove tabele bez DB upita — samo sakriva/prikazuje."""
+        """Filtrira redove tabele bez DB upita."""
         query = text.lower().strip()
+        visible = 0
         for row in range(self.items_table.rowCount()):
-            name_item = self.items_table.item(row, 2)  # Naziv je sada kolona 2
-            code_item = self.items_table.item(row, 3)  # Šifra je sada kolona 3
-            supplier_item = self.items_table.item(row, 1)  # Firma je kolona 1
-            visible = (
+            name_item = self.items_table.item(row, 2)
+            code_item = self.items_table.item(row, 3)
+            supplier_item = self.items_table.item(row, 1)
+            match = (
                 not query
                 or (name_item and query in name_item.text().lower())
                 or (code_item and query in code_item.text().lower())
                 or (supplier_item and query in supplier_item.text().lower())
             )
-            self.items_table.setRowHidden(row, not visible)
-
-        visible_count = sum(
-            1 for r in range(self.items_table.rowCount())
-            if not self.items_table.isRowHidden(r)
-        )
-        self.items_count_label.setText(f"{visible_count} stavki")
-
-    def _clear_items_panel(self) -> None:
-        self.items_table.setRowCount(0)
-        self.items_title.setText("Odaberi cjenovnik iz liste")
-        self.items_title.setStyleSheet("color: #6b7280; font-style: italic;")
-        self.items_count_label.setText("")
-        self.items_search.setVisible(False)
-        self.items_search.clear()
+            self.items_table.setRowHidden(row, not match)
+            if match:
+                visible += 1
+        self.items_count_label.setText(f"{visible} stavki")
 
     # ------------------------------------------------------------------
     # Aktivacija stranice

@@ -82,6 +82,11 @@ QWidget {
     font-size: 13px;
 }
 
+/* QLabel mora biti transparentan da ne bi prekrivao pozadinu roditelja */
+QLabel {
+    background-color: transparent;
+}
+
 QMainWindow {
     background-color: #f9fafb;
 }
@@ -92,41 +97,65 @@ QMainWindow {
    -------------------------------------------------------------------------- */
 
 #Sidebar {
-    background-color: #111827;
-    border-right: 1px solid #1f2937;
+    background: qlineargradient(
+        x1: 0, y1: 0,
+        x2: 1, y2: 1,
+        stop: 0 #1e3c72,
+        stop: 1 #2a5298
+    );
+    border-right: 1px solid #1a3a6a;
 }
 
 #SidebarTitle {
     color: #ffffff;
     font-size: 18px;
     font-weight: 700;
-    padding: 12px;
-    margin-bottom: 4px;
+    padding: 16px 12px;
+    margin-bottom: 8px;
 }
 
 /* Navigation Buttons */
 QPushButton[nav="true"] {
     background-color: transparent;
-    color: #d1d5db;
+    color: #c5d5f0;
     border: none;
     text-align: left;
     padding: 12px 16px;
     border-radius: 8px;
     font-size: 14px;
     font-weight: 600;
-    margin: 2px 8px;
-    min-height: 44px;
+    margin: 4px 10px;
+    min-height: 46px;
 }
 
 QPushButton[nav="true"]:hover {
-    background-color: #1f2937;
+    background-color: rgba(255, 255, 255, 0.1);
     color: #ffffff;
 }
 
-QPushButton[nav="true"][active="true"] {
-    background-color: #2563eb;
+QPushButton[nav="true"]:pressed {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Backup Button at Bottom */
+QPushButton[backup="true"] {
+    background-color: rgba(255, 255, 255, 0.15);
     color: #ffffff;
-    font-weight: 700;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    margin: 8px 10px;
+    min-height: 42px;
+}
+
+QPushButton[backup="true"]:hover {
+    background-color: rgba(255, 255, 255, 0.25);
+}
+
+QPushButton[backup="true"]:pressed {
+    background-color: rgba(255, 255, 255, 0.3);
 }
 
 
@@ -135,22 +164,42 @@ QPushButton[nav="true"][active="true"] {
    -------------------------------------------------------------------------- */
 
 #TopBar {
-    background-color: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 16px;
-    padding: 16px 24px;
+    background-color: #1f4f9f;
+    border: none;
+    border-radius: 0;
+    padding: 18px 24px;
+    min-height: 70px;
 }
 
 #PageTitle {
-    font-size: 24px;
+    font-size: 22px;
     font-weight: 700;
-    color: #111827;
+    color: #ffffff;
 }
 
 #PageSubtitle {
-    color: #6b7280;
-    font-size: 14px;
+    color: #c5d5f0;
+    font-size: 13px;
     margin-top: 4px;
+}
+
+#DashboardTopBar {
+    background-color: #1f4f9f;
+    border: none;
+    padding: 16px 24px;
+    min-height: 70px;
+}
+
+#DashboardTitle {
+    font-size: 22px;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+#DashboardSubtitle {
+    color: #c5d5f0;
+    font-size: 13px;
+    margin-top: 2px;
 }
 
 
@@ -602,6 +651,85 @@ QLabel[kpiValue="true"] {
 
 QLabel[sectionTitle="true"] {
     font-size: 16px;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+/* Dashboard KPI Cards - Base */
+QFrame[kpiCard="true"] {
+    background-color: #ffffff;
+    border-radius: 10px;
+}
+
+QFrame[kpiCard="true"][cardType="kupci"] {
+    border-left: 4px solid #2563eb;
+}
+
+QFrame[kpiCard="true"][cardType="narudzbe"] {
+    border-left: 4px solid #3b82f6;
+}
+
+QFrame[kpiCard="true"][cardType="dug"] {
+    border-left: 4px solid #dc2626;
+}
+
+QFrame[kpiCard="true"][cardType="naplaceno"] {
+    border-left: 4px solid #16a34a;
+}
+
+QFrame[kpiCard="true"]:hover {
+    border: 1px solid #d1d5db;
+}
+
+/* KPI Card Decorative Bottom */
+QFrame[kpiCardDecorative="true"] {
+    background-color: #ffffff;
+    border-radius: 10px;
+    padding: 0;
+}
+
+/* Dashboard Status Cards */
+QFrame[statusCard="true"][statusType="overdue"] {
+    background-color: #fef2f2;
+    border-radius: 10px;
+    border: 1px solid #fecaca;
+}
+
+QFrame[statusCard="true"][statusType="month"] {
+    background-color: #fff7ed;
+    border-radius: 10px;
+    border: 1px solid #fed7aa;
+}
+
+QFrame[statusCard="true"] QLabel {
+    color: #1f2937;
+}
+
+QFrame[statusCard="true"][statusType="overdue"] QLabel[statusTitle="true"] {
+    color: #991b1b;
+}
+
+QFrame[statusCard="true"][statusType="overdue"] QLabel[statusValue="true"] {
+    color: #dc2626;
+}
+
+QFrame[statusCard="true"][statusType="month"] QLabel[statusTitle="true"] {
+    color: #9a3412;
+}
+
+QFrame[statusCard="true"][statusType="month"] QLabel[statusValue="true"] {
+    color: #ea580c;
+}
+
+/* Dashboard Table Cards */
+QFrame[dashboardTable="true"] {
+    background-color: #ffffff;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+}
+
+QFrame[dashboardTable="true"] QLabel[tableTitle="true"] {
+    font-size: 15px;
     font-weight: 700;
     color: #1f2937;
 }

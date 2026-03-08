@@ -6,13 +6,13 @@ from typing import List
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
+    QComboBox,
     QFrame,
     QGridLayout,
     QHBoxLayout,
     QHeaderView,
     QLabel,
     QPushButton,
-    QScrollArea,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -20,7 +20,6 @@ from PySide6.QtWidgets import (
 )
 
 from app.gui.table_helpers import style_table, show_empty_state, create_numeric_item
-from app.gui.components.status_badge import StatusBadge
 from app.services.dashboard_service import (
     DashboardService,
     InstallmentRow,
@@ -32,12 +31,12 @@ class DashboardPage(QWidget):
     """
     Dashboard stranica - početni pregled poslovanja.
 
-    Layout:
-    - RED 1: 4 KPI kartice (Kupci, Narudžbe, Dug, Naplaćeno)
-    - RED 2: 2 Status kartice (Kasne, Ovaj mjesec)
-    - RED 3: 2 Tabele (Rate koje kasne, Rate ovog mjeseca)
-
-    Bez grafova - samo najvažniji podaci.
+    Layout prema referentnom mockupu:
+    - TOP BAR: Tamno plavi header (#1f4f9f) sa naslovom i kontrolama
+    - CONTENT AREA: Svijetlo siva pozadina (#f5f7fb) sa 30px paddingom
+    - RED 1: 4 KPI kartice (Kupci, Aktivne Narudžbe, Preostali Dug, Naplaćeno Ovaj Mjesec)
+    - RED 2: 2 Status kartice (Rate koje Kasne, Rate ovog Mjeseca)
+    - RED 3: 2 Tabele u card sekcijama (Uplate po mjesecima, Rate ovog mjeseca)
     """
 
     def __init__(self) -> None:
@@ -50,14 +49,13 @@ class DashboardPage(QWidget):
 
     def _init_ui(self) -> None:
         """Inicijalizuje UI komponente."""
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.NoFrame)
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(20, 16, 20, 16)
+        main_layout.setSpacing(14)
 
-        scroll_widget = QWidget()
-        main_layout = QVBoxLayout(scroll_widget)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(16)
+        # Kontrolna traka: period + dugme
+        controls_row = self._create_controls_row()
+        main_layout.addWidget(controls_row)
 
         # RED 1: KPI Kartice (4 komada)
         kpi_section = self._create_kpi_section()
@@ -67,255 +65,358 @@ class DashboardPage(QWidget):
         status_section = self._create_status_section()
         main_layout.addWidget(status_section)
 
-        # RED 3: Tabele
+        # RED 3: Tabele (2 velike card sekcije)
         tables_section = self._create_tables_section()
-        main_layout.addWidget(tables_section)
+        main_layout.addWidget(tables_section, 1)
 
-        main_layout.addStretch(1)
-        scroll.setWidget(scroll_widget)
+    def _create_controls_row(self) -> QFrame:
+        """Kreira red sa kontrolama (period + dugme)."""
+        row = QFrame()
+        row.setStyleSheet("background-color: transparent; border: none;")
 
-        root_layout = QVBoxLayout(self)
-        root_layout.setContentsMargins(0, 0, 0, 0)
-        root_layout.setSpacing(0)
-        root_layout.addWidget(scroll)
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(12)
+
+        layout.addStretch(1)
+
+        # Dropdown za period
+        period_label = QLabel("Period:")
+        period_label.setStyleSheet("color: #6b7280; font-size: 13px; font-weight: 500;")
+        layout.addWidget(period_label)
+
+        self.period_combo = QComboBox()
+        self.period_combo.addItems(["Ovaj mjesec", "Prošli mjesec", "Ova godina", "Sve"])
+        self.period_combo.setFixedWidth(160)
+        layout.addWidget(self.period_combo)
+
+        # Primary dugme
+        self.report_btn = QPushButton("+ Novi izvještaj")
+        self.report_btn.setProperty("primary", True)
+        self.report_btn.setFixedHeight(36)
+        layout.addWidget(self.report_btn)
+
+        return row
 
     def _create_kpi_section(self) -> QFrame:
         """Kreira sekciju sa 4 KPI kartice (RED 1)."""
         card = QFrame()
-        card.setProperty("card", True)
-        layout = QGridLayout(card)
-        layout.setContentsMargins(18, 18, 18, 18)
-        layout.setHorizontalSpacing(16)
-        layout.setVerticalSpacing(16)
+        card.setStyleSheet("background-color: transparent; border: none;")
 
-        # Mjesto za 4 KPI kartice (1 red x 4 kolone)
-        self.kpi_cards: List[QWidget] = []
-        for i in range(4):
-            kpi_card = self._create_kpi_card()
-            layout.addWidget(kpi_card, 0, i)
-            self.kpi_cards.append(kpi_card)
+        layout = QGridLayout(card)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setHorizontalSpacing(20)
+        layout.setVerticalSpacing(0)
+
+        # 4 KPI kartice u jednom redu
+        self.kpi_cards: List[QFrame] = []
+
+        # Kartica 1: Kupci (plava)
+        kpi1 = self._create_kpi_card(
+            title="KUPCI",
+            value="—",
+            footer="Baza kupaca",
+            color="#2563eb",
+            card_type="kupci"
+        )
+        layout.addWidget(kpi1, 0, 0)
+        self.kpi_cards.append(kpi1)
+
+        # Kartica 2: Aktivne Narudžbe (svijetlo plava)
+        kpi2 = self._create_kpi_card(
+            title="AKTIVNE NARUDŽBE",
+            value="—",
+            footer="Sa neplaćenim ratama",
+            color="#3b82f6",
+            card_type="narudzbe"
+        )
+        layout.addWidget(kpi2, 0, 1)
+        self.kpi_cards.append(kpi2)
+
+        # Kartica 3: Preostali Dug (crvena)
+        kpi3 = self._create_kpi_card(
+            title="PREOSTALI DUG",
+            value="—",
+            footer="Aktivna potraživanja",
+            color="#dc2626",
+            card_type="dug"
+        )
+        layout.addWidget(kpi3, 0, 2)
+        self.kpi_cards.append(kpi3)
+
+        # Kartica 4: Naplaćeno Ovaj Mjesec (zelena)
+        kpi4 = self._create_kpi_card(
+            title="NAPLACENO OVAJ MJES.",
+            value="—",
+            footer="Tekući mjesec",
+            color="#16a34a",
+            card_type="naplaceno"
+        )
+        layout.addWidget(kpi4, 0, 3)
+        self.kpi_cards.append(kpi4)
 
         return card
 
-    def _create_kpi_card(self) -> QWidget:
-        """Kreira KPI karticu sa naslovom, vrijednošću i ikonicom."""
+    def _create_kpi_card(
+        self,
+        title: str,
+        value: str,
+        footer: str,
+        color: str,
+        card_type: str
+    ) -> QFrame:
+        """Kreira pojedinačnu KPI karticu."""
         card = QFrame()
         card.setProperty("kpiCard", True)
-        card.setStyleSheet("""
-            QWidget[kpiCard="true"] {
-                background-color: #f9fafb;
-                border-radius: 12px;
-                padding: 20px;
-                border: 1px solid #e5e7eb;
-            }
-        """)
+        card.setProperty("cardType", card_type)
+        card.setFixedHeight(115)
 
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(12)
+        layout.setContentsMargins(18, 14, 18, 14)
+        layout.setSpacing(6)
 
-        # Header: naslov + icon
-        header_layout = QHBoxLayout()
-        
-        self.title_label = QLabel("—")
-        self.title_label.setStyleSheet("color: #6b7280; font-size: 13px; font-weight: 600;")
-        self.title_label.setWordWrap(True)
-        header_layout.addWidget(self.title_label)
-        
-        self.icon_label = QLabel("")
-        self.icon_label.setStyleSheet("font-size: 20px;")
-        header_layout.addStretch(1)
-        header_layout.addWidget(self.icon_label)
-        
-        layout.addLayout(header_layout)
+        # Naslov
+        title_label = QLabel(title)
+        title_label.setStyleSheet(f"color: #6b7280; font-size: 11px; font-weight: 700;")
+        layout.addWidget(title_label)
 
-        # Velika vrijednost
-        self.value_label = QLabel("—")
-        self.value_label.setStyleSheet("""
-            color: #111827;
-            font-size: 32px;
-            font-weight: 800;
-        """)
-        layout.addWidget(self.value_label)
+        # Vrijednost (velika)
+        value_label = QLabel(value)
+        value_label.setStyleSheet(f"color: #111827; font-size: 28px; font-weight: 800;")
+        layout.addWidget(value_label)
 
         # Footer
-        self.footer_label = QLabel("")
-        self.footer_label.setStyleSheet("color: #9ca3af; font-size: 12px;")
-        layout.addWidget(self.footer_label)
+        footer_label = QLabel(footer)
+        footer_label.setStyleSheet(f"color: {color}; font-size: 12px; font-weight: 600;")
+        layout.addWidget(footer_label)
+
+        layout.addStretch(1)
+
+        # Sačuvaj reference
+        card._value_label = value_label
+        card._footer_label = footer_label
 
         return card
-
-    def _update_kpi_card(self, card: QWidget, kpi: KpiData, index: int) -> None:
-        """Ažurira KPI karticu sa podacima."""
-        title = card.findChild(QLabel, f"title_{index}")
-        value = card.findChild(QLabel, f"value_{index}")
-        footer = card.findChild(QLabel, f"footer_{index}")
-        icon = card.findChild(QLabel, f"icon_{index}")
-        
-        if title:
-            title.setText(kpi.title)
-        if value:
-            value.setText(kpi.value)
-        if footer:
-            footer.setText(kpi.footer)
-        if icon:
-            icon.setText(kpi.icon)
 
     def _create_status_section(self) -> QFrame:
         """Kreira sekciju sa 2 status kartice (RED 2)."""
         card = QFrame()
-        card.setProperty("card", True)
-        layout = QGridLayout(card)
-        layout.setContentsMargins(18, 18, 18, 18)
-        layout.setHorizontalSpacing(16)
-        layout.setVerticalSpacing(16)
+        card.setStyleSheet("background-color: transparent; border: none;")
 
-        # Mjesto za 2 status kartice (1 red x 2 kolone)
-        self.status_cards: List[QWidget] = []
-        for i in range(2):
-            status_card = self._create_status_card()
-            layout.addWidget(status_card, 0, i)
-            self.status_cards.append(status_card)
+        layout = QGridLayout(card)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setHorizontalSpacing(20)
+        layout.setVerticalSpacing(0)
+
+        # Kartica 1: Rate koje kasne (crvenkasta)
+        self.overdue_card = self._create_status_card(
+            title="RATE KOJE KASNE",
+            value="0",
+            footer="Prioritet za naplatu",
+            status_type="overdue"
+        )
+        layout.addWidget(self.overdue_card, 0, 0)
+
+        # Kartica 2: Rate ovog mjeseca (narandžasta)
+        self.month_card = self._create_status_card(
+            title="RATE OVOG MJESECA",
+            value="0",
+            footer="Dospijevaju sada",
+            status_type="month"
+        )
+        layout.addWidget(self.month_card, 0, 1)
 
         return card
 
-    def _create_status_card(self) -> QWidget:
-        """Kreira status karticu sa stilom za alert."""
+    def _create_status_card(
+        self,
+        title: str,
+        value: str,
+        footer: str,
+        status_type: str
+    ) -> QFrame:
+        """Kreira status karticu sa alert stilom."""
+        is_overdue = status_type == "overdue"
+        title_color = "#991b1b" if is_overdue else "#9a3412"
+        value_color = "#dc2626" if is_overdue else "#ea580c"
+        footer_color = "#b91c1c" if is_overdue else "#9a3412"
+
         card = QFrame()
         card.setProperty("statusCard", True)
-        card.setStyleSheet("""
-            QWidget[statusCard="true"] {
-                background-color: #fef3c7;
-                border-radius: 12px;
-                padding: 20px;
-                border: 1px solid #fcd34d;
-            }
-        """)
+        card.setProperty("statusType", status_type)
+        card.setFixedHeight(105)
 
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(12)
+        layout.setContentsMargins(18, 14, 18, 14)
+        layout.setSpacing(6)
 
-        # Header: naslov + icon
-        header_layout = QHBoxLayout()
-        
-        title_label = QLabel("—")
-        title_label.setObjectName("statusTitle")
-        title_label.setStyleSheet("color: #92400e; font-size: 13px; font-weight: 600;")
-        title_label.setWordWrap(True)
-        header_layout.addWidget(title_label)
-        
-        icon_label = QLabel("")
-        icon_label.setStyleSheet("font-size: 20px;")
-        header_layout.addStretch(1)
-        header_layout.addWidget(icon_label)
-        
-        layout.addLayout(header_layout)
+        # Naslov
+        title_label = QLabel(title)
+        title_label.setProperty("statusTitle", True)
+        title_label.setStyleSheet(f"color: {title_color}; font-size: 11px; font-weight: 700;")
+        layout.addWidget(title_label)
 
-        # Velika vrijednost
-        value_label = QLabel("—")
-        value_label.setStyleSheet("""
-            color: #78350f;
-            font-size: 32px;
-            font-weight: 800;
-        """)
+        # Vrijednost (velika)
+        value_label = QLabel(value)
+        value_label.setProperty("statusValue", True)
+        value_label.setStyleSheet(f"color: {value_color}; font-size: 32px; font-weight: 800;")
         layout.addWidget(value_label)
 
         # Footer
-        footer_label = QLabel("")
-        footer_label.setStyleSheet("color: #b45309; font-size: 12px;")
+        footer_label = QLabel(footer)
+        footer_label.setStyleSheet(f"color: {footer_color}; font-size: 12px; font-weight: 600;")
         layout.addWidget(footer_label)
 
+        layout.addStretch(1)
+
         # Sačuvaj reference
-        card._title_label = title_label
         card._value_label = value_label
         card._footer_label = footer_label
-        card._icon_label = icon_label
 
         return card
-
-    def _update_status_card(self, card: QWidget, kpi: KpiData) -> None:
-        """Ažurira status karticu sa podacima."""
-        card._title_label.setText(kpi.title)
-        card._value_label.setText(kpi.value)
-        card._footer_label.setText(kpi.footer)
-        card._icon_label.setText(kpi.icon)
 
     def _create_tables_section(self) -> QFrame:
-        """Kreira sekciju sa tabelama (RED 3)."""
-        card = QFrame()
-        card.setProperty("card", True)
-        layout = QVBoxLayout(card)
-        layout.setContentsMargins(18, 18, 18, 18)
-        layout.setSpacing(16)
+        """Kreira sekciju sa 2 velike tabele (RED 3)."""
+        container = QFrame()
+        container.setStyleSheet("background-color: transparent; border: none;")
 
-        # Tabela 1: Rate koje kasne
-        overdue_label = QLabel("⚠️ Rate koje kasne")
-        overdue_label.setProperty("sectionTitle", True)
-        layout.addWidget(overdue_label)
+        layout = QGridLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setHorizontalSpacing(20)
+        layout.setVerticalSpacing(0)
 
-        self.overdue_table = self._create_overdue_table()
-        layout.addWidget(self.overdue_table)
+        # Tabela 1: Uplate po mjesecima
+        payments_table_card = self._create_table_card(
+            title="Uplate po mjesecima",
+            columns=["Kupac", "Proizvod", "Rata", "Plaćeno", "Preostalo"],
+            is_payments=True
+        )
+        layout.addWidget(payments_table_card, 0, 0)
 
         # Tabela 2: Rate ovog mjeseca
-        month_label = QLabel("📅 Rate za ovaj mjesec")
-        month_label.setProperty("sectionTitle", True)
-        layout.addWidget(month_label)
+        month_table_card = self._create_table_card(
+            title="Rate ovog mjeseca",
+            columns=["Kupac", "Proizvod", "Rata", "Plaćeno", "Preostalo", "Dospijeće", "Status"],
+            is_payments=False
+        )
+        layout.addWidget(month_table_card, 0, 1)
 
-        self.month_table = self._create_month_table()
-        layout.addWidget(self.month_table)
+        return container
+
+    def _create_table_card(
+        self,
+        title: str,
+        columns: List[str],
+        is_payments: bool = False
+    ) -> QFrame:
+        """Kreira card sekciju sa tabelom."""
+        card = QFrame()
+        card.setProperty("dashboardTable", True)
+
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(20, 16, 20, 20)
+        layout.setSpacing(14)
+
+        # Title
+        title_label = QLabel(title)
+        title_label.setProperty("tableTitle", True)
+        title_label.setStyleSheet("color: #1f2937; font-size: 15px; font-weight: 700;")
+        layout.addWidget(title_label)
+
+        # Tabela
+        table = QTableWidget()
+        table.setColumnCount(len(columns))
+        table.setHorizontalHeaderLabels(columns)
+        table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+        header = table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.Stretch)
+        header.setSectionResizeMode(1, QHeaderView.Stretch)
+        if is_payments:
+            # Kupac | Proizvod | Rata | Plaćeno | Preostalo
+            table.setColumnWidth(2, 70)
+            table.setColumnWidth(3, 95)
+            table.setColumnWidth(4, 95)
+            for i in range(2, len(columns)):
+                header.setSectionResizeMode(i, QHeaderView.Fixed)
+        else:
+            # Kupac | Proizvod | Rata | Plaćeno | Preostalo | Dospijeće | Status
+            table.setColumnWidth(2, 70)
+            table.setColumnWidth(3, 95)
+            table.setColumnWidth(4, 95)
+            table.setColumnWidth(5, 100)
+            table.setColumnWidth(6, 90)
+            for i in range(2, len(columns)):
+                header.setSectionResizeMode(i, QHeaderView.Fixed)
+
+        # Stil tabele
+        table.setStyleSheet("""
+            QTableWidget {
+                background-color: #ffffff;
+                border: 1px solid #e5e7eb;
+                border-radius: 10px;
+                gridline-color: #f3f4f6;
+                font-size: 13px;
+            }
+            QTableWidget::item {
+                padding: 10px 12px;
+                border-bottom: 1px solid #f3f4f6;
+            }
+            QTableWidget::item:hover {
+                background-color: #f9fafb;
+            }
+            QHeaderView::section {
+                background-color: #f9fafb;
+                color: #6b7280;
+                font-weight: 700;
+                font-size: 12px;
+                padding: 10px 8px;
+                border: none;
+                border-bottom: 2px solid #e5e7eb;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+        """)
+
+        table.verticalHeader().setVisible(False)
+        table.setShowGrid(False)
+        table.setEditTriggers(QTableWidget.NoEditTriggers)
+        table.setSelectionBehavior(QTableWidget.SelectRows)
+        table.setSelectionMode(QTableWidget.SingleSelection)
+
+        layout.addWidget(table)
+
+        # Sačuvaj referencu na tabelu
+        if is_payments:
+            self.payments_table = table
+        else:
+            self.month_table = table
 
         return card
 
-    def _create_overdue_table(self) -> QTableWidget:
-        """Kreira tabelu za rate koje kasne."""
-        table = QTableWidget()
-        table.setColumnCount(6)
-        table.setHorizontalHeaderLabels([
-            "Kupac", "Proizvod", "Rata", "Plaćeno", "Preostalo", "Dospijeće"
-        ])
+    def _update_kpi_card_data(self, card: QFrame, kpi: KpiData) -> None:
+        """Ažurira KPI karticu sa podacima."""
+        if hasattr(card, "_value_label"):
+            card._value_label.setText(kpi.value)
+        if hasattr(card, "_footer_label"):
+            card._footer_label.setText(kpi.footer)
 
-        header = table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.Stretch)
-        header.setSectionResizeMode(1, QHeaderView.Stretch)
-        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)
+    def _update_status_cards(self, kpis: List[KpiData]) -> None:
+        """Ažurira status kartice sa podacima."""
+        if len(kpis) > 0 and hasattr(self.overdue_card, "_value_label"):
+            self.overdue_card._value_label.setText(kpis[0].value)
+        if len(kpis) > 1 and hasattr(self.month_card, "_value_label"):
+            self.month_card._value_label.setText(kpis[1].value)
 
-        style_table(table)
-
-        return table
-
-    def _create_month_table(self) -> QTableWidget:
-        """Kreira tabelu za rate ovog mjeseca."""
-        table = QTableWidget()
-        table.setColumnCount(7)
-        table.setHorizontalHeaderLabels([
-            "Kupac", "Proizvod", "Rata", "Plaćeno", "Preostalo", "Dospijeće", "Status"
-        ])
-
-        header = table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.Stretch)
-        header.setSectionResizeMode(1, QHeaderView.Stretch)
-        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(6, QHeaderView.ResizeToContents)
-
-        style_table(table)
-
-        return table
-
-    def _populate_overdue_table(
+    def _populate_payments_table(
         self,
         table: QTableWidget,
         rows: List[InstallmentRow]
     ) -> None:
-        """Popunjava tabelu sa ratama koje kasne."""
+        """Popunjava tabelu sa uplatama po mjesecima."""
         if not rows:
-            show_empty_state(table, "Nema rata koje kasne")
+            show_empty_state(table, "Nema uplata")
             return
 
         table.setRowCount(len(rows))
@@ -333,12 +434,6 @@ class DashboardPage(QWidget):
             if row.remaining_amount > 0:
                 remaining_item.setForeground(QColor("#dc2626"))
             table.setItem(i, 4, remaining_item)
-
-            due_item = QTableWidgetItem(row.due_date.strftime("%d.%m.%Y."))
-            due_item.setTextAlignment(Qt.AlignCenter)
-            table.setItem(i, 5, due_item)
-
-        table.resizeColumnsToContents()
 
     def _populate_month_table(
         self,
@@ -370,10 +465,20 @@ class DashboardPage(QWidget):
             due_item.setTextAlignment(Qt.AlignCenter)  # type: ignore[arg-type]
             table.setItem(i, 5, due_item)
 
-            status_badge = StatusBadge(row.status)
-            table.setCellWidget(i, 6, status_badge)
-
-        table.resizeColumnsToContents()
+            status_map = {
+                "paid": ("PLAĆENO", "#dcfce7", "#166534"),
+                "partially_paid": ("DJELIMIČNO", "#fef3c7", "#92400e"),
+                "overdue": ("KASNI", "#fee2e2", "#991b1b"),
+                "pending": ("ČEKA", "#f3f4f6", "#6b7280"),
+            }
+            status_text, bg, fg = status_map.get(
+                row.status, ("—", "#f3f4f6", "#6b7280")
+            )
+            status_item = QTableWidgetItem(status_text)
+            status_item.setTextAlignment(Qt.AlignCenter)  # type: ignore[arg-type]
+            status_item.setBackground(QColor(bg))
+            status_item.setForeground(QColor(fg))
+            table.setItem(i, 6, status_item)
 
     def _load_dashboard_data(self) -> None:
         """Učitava sve podatke za dashboard."""
@@ -381,26 +486,26 @@ class DashboardPage(QWidget):
         kpis = self.dashboard_service.get_dashboard_kpis()
         for i, kpi in enumerate(kpis):
             if i < len(self.kpi_cards):
-                self._update_kpi_card(self.kpi_cards[i], kpi, i)
+                self._update_kpi_card_data(self.kpi_cards[i], kpi)
 
         # RED 2: Status KPI-jevi
         status_kpis = self.dashboard_service.get_status_kpis()
-        for i, kpi in enumerate(status_kpis):
-            if i < len(self.status_cards):
-                self._update_status_card(self.status_cards[i], kpi)
+        self._update_status_cards(status_kpis)
 
         # RED 3: Tabele
         self._load_tables()
 
     def _load_tables(self) -> None:
         """Učitava podatke za tabele."""
-        # Tabela 1: Rate koje kasne
-        overdue = self.dashboard_service.get_overdue_installments(limit=10)
-        self._populate_overdue_table(self.overdue_table, overdue)
+        # Tabela 1: Uplate po mjesecima (koristimo overdue kao primjer)
+        payments = self.dashboard_service.get_overdue_installments(limit=8)
+        if hasattr(self, "payments_table"):
+            self._populate_payments_table(self.payments_table, payments)
 
         # Tabela 2: Rate ovog mjeseca
-        month = self.dashboard_service.get_current_month_installments(limit=10)
-        self._populate_month_table(self.month_table, month)
+        month = self.dashboard_service.get_current_month_installments(limit=8)
+        if hasattr(self, "month_table"):
+            self._populate_month_table(self.month_table, month)
 
     def on_activate(self) -> None:
         """Osvježava podatke kada se stranica aktivira."""

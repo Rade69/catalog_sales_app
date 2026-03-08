@@ -229,3 +229,110 @@ class PaymentService:
             _recalculate_installment_status(installment)
             _recalculate_order_status(order)
             session.flush()
+
+    @staticmethod
+    def get_installments_for_payment(
+        filter_type: str = "overdue",
+        search: str = ""
+    ) -> list:
+        """
+        Vraća rate za prikaz u PaymentsPage.
+
+        filter_type:
+            'overdue'  — samo rate koje kasne (due_date < danas, remaining > 0)
+            'month'    — rate ovog mjeseca
+            'unpaid'   — sve neplaćene rate
+            'all'      — sve rate
+        """
+        from sqlalchemy import and_, extract, func
+
+        today = date.today()
+
+        with session_scope() as session:
+            stmt = (
+                select(Installment)
+                .join(Order, Installment.order_id == Order.id)
+                .join(Customer, Installment.order.has(Order.customer_id == Customer.id))
+                .options(
+                    joinedload(Installment.order).joinedload(Order.customer),
+                    joinedload(Installment.payments),
+                )
+            )
+
+            # Filter po tipu
+            remaining_expr = (
+                Installment.amount - func.coalesce(
+                    select(func.sum(Payment.amount))
+                    .where(Payment.installment_id == Installment.id)
+                    .correlate(Installment)
+                    .scalar_subquery(),
+                    0
+                )
+            )
+
+            if filter_type == "overdue":
+                stmt = stmt.where(
+                    and_(Installment.due_date < today, remaining_expr > 0)
+                )
+            elif filter_type == "month":
+                stmt = stmt.where(
+                    and_(
+                        extract('year', Installment.due_date) == today.year,
+                        extract('month', Installment.due_date) == today.month,
+                    )
+                )
+            elif filter_type == "unpaid":
+                stmt = stmt.where(remaining_expr > 0)
+            # 'all' — bez filtera
+
+            # Search
+            if search:
+                like = f"%{search}%"
+                stmt = stmt.where(
+                    Customer.full_name.ilike(like) |
+                    Order.product_name_snapshot.ilike(like)
+                )
+
+            stmt = stmt.order_by(Installment.due_date.asc())
+
+            installments = list(session.execute(stmt).scalars().unique())
+
+            # Izračunaj paid_amount za svaku ratu i prikvači kao atribut
+            for inst in installments:
+                paid = sum(
+                    (p.amount for p in inst.payments), Decimal("0.00")
+                )
+                inst.paid_amount = paid
+                session.expunge(inst)
+
+            return installments
+
+    @staticmethod
+    def get_installment_details(installment_id: int):
+        """Vraća detalje odabrane rate za prikaz u info panelu."""
+        with session_scope() as session:
+            inst = session.get(
+                Installment, installment_id,
+                options=[joinedload(Installment.payments)]
+            )
+            if not inst:
+                return None
+            paid = sum((p.amount for p in inst.payments), Decimal("0.00"))
+            inst.paid_amount = paid
+            session.expunge(inst)
+            return inst
+
+    @staticmethod
+    def get_payments_for_installment(installment_id: int) -> list:
+        """Vraća sve uplate za odabranu ratu."""
+        with session_scope() as session:
+            payments = list(
+                session.execute(
+                    select(Payment)
+                    .where(Payment.installment_id == installment_id)
+                    .order_by(Payment.payment_date.desc())
+                ).scalars()
+            )
+            for p in payments:
+                session.expunge(p)
+            return payments

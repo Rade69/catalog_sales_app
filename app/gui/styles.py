@@ -14,7 +14,7 @@ def load_stylesheet() -> str:
     Returns:
         Sadržaj QSS fajla kao string
     """
-    styles_dir = Path(__file__).parent
+    styles_dir = Path(__file__).parent / "styles"
     qss_path = styles_dir / "app_style.qss"
     
     if not qss_path.exists():

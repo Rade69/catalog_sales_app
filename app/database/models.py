@@ -270,6 +270,7 @@ class Order(TimestampMixin, Base):
 
     installments_count: Mapped[int] = mapped_column(Integer, nullable=False)
     first_due_date: Mapped[Optional[date]] = mapped_column(Date)
+    contract_number: Mapped[Optional[str]] = mapped_column(String(50))  # Broj ugovora (historijski uvoz)
     note: Mapped[Optional[str]] = mapped_column(Text)
 
     customer: Mapped[Customer] = relationship(back_populates="orders")
@@ -485,6 +486,7 @@ class PriceListItem(Base):
     regular_price: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2))
     discount_price: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2))
     points: Mapped[Optional[int]] = mapped_column(Integer)
+    status: Mapped[Optional[str]] = mapped_column(String(100))
 
     price_list: Mapped[PriceList] = relationship(back_populates="items")
 

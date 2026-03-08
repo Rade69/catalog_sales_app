@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QFrame,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QSplitter,
     QTableWidget,
@@ -18,6 +19,7 @@ from PySide6.QtWidgets import (
 
 from app.gui.table_helpers import style_table, create_numeric_item
 from app.services.campaign_service import CampaignService
+from app.gui.icons import create_icon_label, get_pixmap
 
 
 class CampaignsPage(QWidget):
@@ -47,8 +49,8 @@ class CampaignsPage(QWidget):
         products_card = self._create_products_card()
         splitter.addWidget(products_card)
 
-        splitter.setStretchFactor(0, 2)
-        splitter.setStretchFactor(1, 3)
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 5)
 
         root.addWidget(splitter, 1)
 
@@ -67,7 +69,7 @@ class CampaignsPage(QWidget):
         header_row.addWidget(table_title)
         header_row.addStretch(1)
 
-        self.import_btn = QPushButton("📥  Import iz Excel-a")
+        self.import_btn = QPushButton("Uvezi pogodnosti")
         self.import_btn.setStyleSheet("""
             QPushButton {
                 background-color: #059669;
@@ -80,27 +82,55 @@ class CampaignsPage(QWidget):
             QPushButton:hover { background-color: #047857; }
         """)
         self.import_btn.clicked.connect(self._open_import_dialog)
+        # Dodaj ikonicu
+        import_pixmap = get_pixmap("import", "#ffffff", 18)
+        self.import_btn.setIcon(import_pixmap)
         header_row.addWidget(self.import_btn)
 
         self.refresh_btn = QPushButton("Osvježi")
         self.refresh_btn.setProperty("secondary", True)
+        refresh_pixmap = get_pixmap("refresh", "#374151", 18)
+        self.refresh_btn.setIcon(refresh_pixmap)
         header_row.addWidget(self.refresh_btn)
+
+        self.delete_btn = QPushButton("Izbriši")
+        self.delete_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #dc2626;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 8px 14px;
+                font-weight: 700;
+            }
+            QPushButton:hover { background-color: #b91c1c; }
+            QPushButton:disabled {
+                background-color: #f3f4f6;
+                color: #d1d5db;
+            }
+        """)
+        self.delete_btn.setEnabled(False)
+        self.delete_btn.clicked.connect(self._delete_campaign)
+        delete_pixmap = get_pixmap("delete", "#ffffff", 18)
+        self.delete_btn.setIcon(delete_pixmap)
+        header_row.addWidget(self.delete_btn)
 
         layout.addLayout(header_row)
 
         # Tabela
         self.table = QTableWidget()
-        self.table.setColumnCount(5)
+        self.table.setColumnCount(4)
         self.table.setHorizontalHeaderLabels([
-            "ID", "Naziv", "Datum početka", "Datum završetka", "Datum kreiranja"
+            "ID", "Naziv", "Datum početka", "Datum završetka"
         ])
 
         # Konfiguracija tabele
         header = self.table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # type: ignore[arg-type]  # ID
         header.setSectionResizeMode(1, QHeaderView.Stretch)  # type: ignore[arg-type]  # Naziv
         header.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # type: ignore[arg-type]  # Start
         header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # type: ignore[arg-type]  # End
-        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # type: ignore[arg-type]  # Created
+        self.table.setColumnWidth(0, 50)  # Fiksna širina za ID
 
         style_table(self.table)
 
@@ -143,17 +173,17 @@ class CampaignsPage(QWidget):
 
         # Tabela proizvoda
         self.products_table = QTableWidget()
-        self.products_table.setColumnCount(6)
+        self.products_table.setColumnCount(4)
         self.products_table.setHorizontalHeaderLabels([
-            "Naziv proizvoda", "Brend", "Model", "Cijena (KM)", "Akcija (KM)", "Bod"
+            "Naziv proizvoda", "Brend", "Cijena (KM)", "Bod"
         ])
         ph = self.products_table.horizontalHeader()
         ph.setSectionResizeMode(0, QHeaderView.Stretch)  # type: ignore[arg-type]
         ph.setSectionResizeMode(1, QHeaderView.ResizeToContents)  # type: ignore[arg-type]
         ph.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # type: ignore[arg-type]
         ph.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # type: ignore[arg-type]
-        ph.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # type: ignore[arg-type]
-        ph.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # type: ignore[arg-type]
+        # Smanji širinu kolone "Naziv proizvoda" da se vidi više podataka
+        self.products_table.setColumnWidth(0, 280)
         style_table(self.products_table)
         self.products_table.hide()
 
@@ -195,28 +225,28 @@ class CampaignsPage(QWidget):
             end_item.setTextAlignment(Qt.AlignCenter)  # type: ignore[arg-type]
             self.table.setItem(row, 3, end_item)
 
-            # Datum kreiranja
-            created_item = QTableWidgetItem(campaign.created_at.strftime("%d.%m.%Y. %H:%M"))
-            created_item.setTextAlignment(Qt.AlignCenter)  # type: ignore[arg-type]
-            self.table.setItem(row, 4, created_item)
-
         self.table.resizeColumnsToContents()
 
     def _on_campaign_selected(self) -> None:
         """Poziva se kad se odabere red u tabeli kampanja."""
         row = self.table.currentRow()
         if row < 0:
+            self.delete_btn.setEnabled(False)
             return
         id_item = self.table.item(row, 0)
         if id_item is None:
+            self.delete_btn.setEnabled(False)
             return
         try:
             campaign_id = int(id_item.text())
         except ValueError:
+            self.delete_btn.setEnabled(False)
             return
         name_item = self.table.item(row, 1)
         campaign_name = name_item.text() if name_item else f"Kampanja #{campaign_id}"
         self._load_campaign_products(campaign_id, campaign_name)
+        # Omogući brisanje kad je kampanja odabrana
+        self.delete_btn.setEnabled(True)
 
     def _load_campaign_products(self, campaign_id: int, campaign_name: str) -> None:
         """Učitava proizvode za odabranu kampanju u desni panel."""
@@ -249,28 +279,15 @@ class CampaignsPage(QWidget):
                 product.brand or "" if product else ""
             ))
 
-            # Model
-            self.products_table.setItem(row, 2, QTableWidgetItem(
-                product.model or "" if product else ""
-            ))
-
             # Cijena
-            self.products_table.setItem(row, 3, create_numeric_item(cp.regular_price))
-
-            # Akcijska cijena
-            if cp.discount_price is not None:
-                disc_item = create_numeric_item(cp.discount_price)
-                disc_item.setForeground(QColor("#059669"))
-                self.products_table.setItem(row, 4, disc_item)
-            else:
-                self.products_table.setItem(row, 4, QTableWidgetItem(""))
+            self.products_table.setItem(row, 2, create_numeric_item(cp.regular_price))
 
             # Bod
             if cp.points is not None:
                 bod_item = create_numeric_item(cp.points)
-                self.products_table.setItem(row, 5, bod_item)
+                self.products_table.setItem(row, 3, bod_item)
             else:
-                self.products_table.setItem(row, 5, QTableWidgetItem(""))
+                self.products_table.setItem(row, 3, QTableWidgetItem(""))
 
         self.products_table.resizeColumnsToContents()
 
@@ -286,10 +303,64 @@ class CampaignsPage(QWidget):
             if cp.product and (
                 query in (cp.product.name or "").lower()
                 or query in (cp.product.brand or "").lower()
-                or query in (cp.product.model or "").lower()
             )
         ]
         self._populate_products_table(filtered)
+
+    def _delete_campaign(self) -> None:
+        """Briše odabranu kampanju nakon potvrde."""
+        row = self.table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "Upozorenje", "Odaberite kampanju za brisanje.")
+            return
+
+        # Dohvati ID i naziv kampanje
+        id_item = self.table.item(row, 0)
+        name_item = self.table.item(row, 1)
+        if not id_item or not name_item:
+            return
+
+        try:
+            campaign_id = int(id_item.text())
+        except ValueError:
+            return
+
+        campaign_name = name_item.text()
+
+        # Potvrdni dijalog
+        confirm = QMessageBox.question(
+            self,
+            "Potvrdi brisanje",
+            f"Da li ste sigurni da želite obrisati kampanju?\n\n"
+            f"Kampanja: {campaign_name}\n\n"
+            "Ova akcija će obrisati kampanju i sve pripadajuće proizvode.\n"
+            "Ova akcija se ne može poništiti.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+
+        if confirm != QMessageBox.Yes:
+            return
+
+        # Briši kampanju
+        try:
+            self.campaign_service.delete_campaign(campaign_id)
+            QMessageBox.information(
+                self, "Uspješno",
+                f"Kampanja '{campaign_name}' je obrisana."
+            )
+            self.delete_btn.setEnabled(False)
+            self._load_campaigns()
+            # Sakrij desni panel
+            self.products_hint.show()
+            self.products_search.hide()
+            self.products_table.hide()
+            self.products_title.setText("Proizvodi u kampanji")
+            self.products_count_label.setText("")
+        except ValueError as e:
+            QMessageBox.warning(self, "Greška", str(e))
+        except Exception as e:
+            QMessageBox.critical(self, "Greška pri brisanju", str(e))
 
     def _open_import_dialog(self) -> None:
         """Otvara modalni dijalog za import kampanje."""

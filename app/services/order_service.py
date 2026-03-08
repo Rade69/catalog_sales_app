@@ -159,7 +159,14 @@ class OrderService:
             # Generiši rate koristeći InstallmentService
             InstallmentService.generate_for_order(order)
 
-            session.refresh(order)
+            session.flush()  # Osiguraj da je ID dostupan
+            
+            # Sačuvaj ID prije nego što session zatvori
+            order_id = order.id
+            
+            # Expunge da objekat ostane upotrebljiv van sesije
+            session.expunge(order)
+            
             return order
 
     @staticmethod
@@ -178,7 +185,20 @@ class OrderService:
             )
             if customer_filter:
                 stmt = stmt.where(Order.customer_id == customer_filter)
-            return list(session.execute(stmt).scalars().all())
+            orders = list(session.execute(stmt).scalars().all())
+            for order in orders:
+                if order.customer is not None:
+                    try:
+                        session.expunge(order.customer)
+                    except Exception:
+                        pass
+                for inst in list(order.installments):
+                    try:
+                        session.expunge(inst)
+                    except Exception:
+                        pass
+                session.expunge(order)
+            return orders
 
     @staticmethod
     def get_order_details(order_id: int) -> Optional[Order]:
@@ -194,4 +214,47 @@ class OrderService:
                 )
                 .where(Order.id == order_id)
             )
-            return session.execute(stmt).unique().scalar_one_or_none()
+            order = session.execute(stmt).unique().scalar_one_or_none()
+            
+            if order is not None:
+                # Expunge da objekat ostane upotrebljiv van sesije
+                if order.customer is not None:
+                    session.expunge(order.customer)
+                for inst in list(order.installments):
+                    session.expunge(inst)
+                session.expunge(order)
+            
+            return order
+
+    @staticmethod
+    def delete_order(order_id: int) -> bool:
+        """
+        Briše narudžbu i sve pripadajuće rate i uplate.
+
+        Args:
+            order_id: ID narudžbe za brisanje
+
+        Returns:
+            True ako je brisanje uspješno
+
+        Raises:
+            ValueError: Ako narudžba ne postoji
+        """
+        with session_scope() as session:
+            order = session.get(Order, order_id)
+            if order is None:
+                raise ValueError(f"Narudžba #{order_id} nije pronađena.")
+
+            # Prvo obriši sve uplate povezane sa ratama
+            for installment in order.installments:
+                for payment in installment.payments:
+                    session.delete(payment)
+
+            # Zatim obriši sve rate
+            for installment in order.installments:
+                session.delete(installment)
+
+            # Na kraju obriši narudžbu
+            session.delete(order)
+
+            return True

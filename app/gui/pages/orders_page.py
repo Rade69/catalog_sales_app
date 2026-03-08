@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 from app.gui.table_helpers import style_table, create_numeric_item
 from app.services.campaign_service import CampaignService
 from app.services.order_service import OrderService
+from app.gui.icons import create_icon_label, get_pixmap
 
 
 class OrdersPage(QWidget):
@@ -100,9 +101,14 @@ class OrdersPage(QWidget):
         layout.setSpacing(16)
 
         # 1. Title
-        title = QLabel("🛒 Nova narudžba")
+        title_layout = QHBoxLayout()
+        cart_icon = create_icon_label("cart", "#1f2937", 22)
+        title_layout.addWidget(cart_icon)
+        title = QLabel("Nova narudžba")
         title.setProperty("sectionTitle", True)
-        layout.addWidget(title)
+        title_layout.addWidget(title)
+        title_layout.addStretch(1)
+        layout.addLayout(title_layout)
 
         # 2. Fields (Grid Layout)
         fields_widget = QWidget()
@@ -142,13 +148,13 @@ class OrdersPage(QWidget):
 
         # Red 2: Broj rata
         fields_layout.addWidget(QLabel("Broj rata:"), 2, 0)
-        self.installments_input = QSpinBox()
-        self.installments_input.setRange(1, 10)
-        self.installments_input.setValue(1)
-        self.installments_input.setSuffix(" rata")
-        self.installments_input.setMinimumWidth(200)
-        self.installments_input.setToolTip("Odaberite broj rata (1-10)")
-        fields_layout.addWidget(self.installments_input, 2, 1)
+        self.installments_combo = QComboBox()
+        self.installments_combo.addItems([f"{i} rata" for i in range(1, 11)])
+        self.installments_combo.setCurrentIndex(0)  # Default: 1 rata
+        self.installments_combo.setMinimumWidth(200)
+        self.installments_combo.setToolTip("Odaberite broj rata (1-10)")
+        self.installments_combo.currentIndexChanged.connect(self._update_preview)
+        fields_layout.addWidget(self.installments_combo, 2, 1)
 
         # Spacer
         fields_layout.setColumnStretch(2, 1)
@@ -157,7 +163,7 @@ class OrdersPage(QWidget):
         layout.addWidget(fields_widget)
 
         # 3. Preview sekcija
-        preview_group = QGroupBox("📊 Preview narudžbe")
+        preview_group = QGroupBox("Preview narudžbe")
         preview_group.setStyleSheet("""
             QGroupBox {
                 font-weight: bold;
@@ -177,6 +183,10 @@ class OrdersPage(QWidget):
         preview_layout.setContentsMargins(16, 16, 16, 16)
         preview_layout.setSpacing(32)
 
+        # Dodaj ikonicu
+        chart_icon = create_icon_label("chart", "#059669", 20)
+        preview_layout.insertWidget(0, chart_icon)
+
         self.preview_total_label = QLabel("Ukupno: 0.00 KM")
         self.preview_total_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #111827;")
         preview_layout.addWidget(self.preview_total_label)
@@ -192,7 +202,7 @@ class OrdersPage(QWidget):
         button_layout = QHBoxLayout()
         button_layout.setSpacing(12)
 
-        self.save_btn = QPushButton("💾 Sačuvaj narudžbu")
+        self.save_btn = QPushButton("Sačuvaj narudžbu")
         self.save_btn.setProperty("primary", True)
         self.save_btn.setMinimumHeight(44)
         self.save_btn.setToolTip("Kreiraj narudžbu sa automatski generisanim ratama")
@@ -212,13 +222,44 @@ class OrdersPage(QWidget):
                 background-color: #065f46;
             }
         """)
+        save_pixmap = get_pixmap("save", "#ffffff", 18)
+        self.save_btn.setIcon(save_pixmap)
         button_layout.addWidget(self.save_btn)
 
-        self.clear_btn = QPushButton("🔄 Očisti formu")
+        self.clear_btn = QPushButton("Očisti formu")
         self.clear_btn.setProperty("secondary", True)
         self.clear_btn.setMinimumHeight(44)
         self.clear_btn.setToolTip("Očisti sva polja za novi unos")
+        clear_pixmap = get_pixmap("refresh", "#374151", 18)
+        self.clear_btn.setIcon(clear_pixmap)
         button_layout.addWidget(self.clear_btn)
+
+        self.delete_btn = QPushButton("Obriši narudžbu")
+        self.delete_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #dc2626;
+                color: white;
+                font-weight: bold;
+                font-size: 14px;
+                border-radius: 8px;
+                padding: 10px 20px;
+            }
+            QPushButton:hover {
+                background-color: #b91c1c;
+            }
+            QPushButton:pressed {
+                background-color: #991b1b;
+            }
+            QPushButton:disabled {
+                background-color: #f3f4f6;
+                color: #d1d5db;
+            }
+        """)
+        self.delete_btn.setToolTip("Obriši odabranu narudžbu iz tabele")
+        self.delete_btn.setEnabled(False)
+        delete_pixmap = get_pixmap("delete", "#ffffff", 18)
+        self.delete_btn.setIcon(delete_pixmap)
+        button_layout.addWidget(self.delete_btn)
 
         button_layout.addStretch(1)
         layout.addLayout(button_layout)
@@ -234,7 +275,7 @@ class OrdersPage(QWidget):
 
     def _create_table_group(self) -> QGroupBox:
         """Kreira grupu sa tabelom narudžbi."""
-        group = QGroupBox("📋 Postojeće narudžbe")
+        group = QGroupBox("Postojeće narudžbe")
         layout = QVBoxLayout(group)
 
         # Tabela
@@ -261,8 +302,10 @@ class OrdersPage(QWidget):
         layout.addWidget(self.table)
 
         # Refresh dugme
-        refresh_btn = QPushButton("🔄 Osvježi")
+        refresh_btn = QPushButton("Osvježi")
         refresh_btn.setProperty("secondary", True)
+        refresh_pixmap = get_pixmap("refresh", "#374151", 18)
+        refresh_btn.setIcon(refresh_pixmap)
         refresh_btn.clicked.connect(self._load_orders)
         layout.addWidget(refresh_btn)
 
@@ -272,12 +315,15 @@ class OrdersPage(QWidget):
         """Povezuje signale sa slotovima."""
         self.save_btn.clicked.connect(self.save_order)
         self.clear_btn.clicked.connect(self.clear_form)
+        self.delete_btn.clicked.connect(self.delete_selected_order)
+        self.table.itemSelectionChanged.connect(self._on_order_selected)
         self.campaign_combo.currentIndexChanged.connect(self._on_campaign_changed)
+        self.campaign_combo.currentIndexChanged.connect(self._check_campaign_warning)
         self.product_combo.activated.connect(self._on_product_activated)
-        
+
         # Preview update
         self.price_input.textChanged.connect(self._update_preview)
-        self.installments_input.valueChanged.connect(self._update_preview)
+        self.installments_combo.currentIndexChanged.connect(self._update_preview)
 
     def _load_campaigns_for_combo(self) -> None:
         """Učitava kampanje u dropdown i automatski bira aktivnu."""
@@ -344,10 +390,20 @@ class OrdersPage(QWidget):
             )
 
         # Prikaži warning ako nema aktivne kampanje
-        if self.order_service.has_active_campaign():
+        self._check_campaign_warning()
+
+    def _check_campaign_warning(self) -> None:
+        """Provjerava i ažurira warning poruku o kampanji."""
+        # Sakrij warning ako je odabrana kampanja (nije "— Odaberite kampanju —")
+        selected_index = self.campaign_combo.currentIndex()
+        if selected_index > 0:  # Prva stavka je "— Odaberite kampanju —"
             self.campaign_warning.hide()
         else:
-            self.campaign_warning.show()
+            # Prikaži warning samo ako nema aktivne kampanje
+            if self.order_service.has_active_campaign():
+                self.campaign_warning.hide()
+            else:
+                self.campaign_warning.show()
 
     def _load_orders(self) -> None:
         """Učitava narudžbe u tabelu."""
@@ -418,9 +474,8 @@ class OrdersPage(QWidget):
         except Exception:
             price = Decimal("0.00")
 
-        installments = self.installments_input.value()
-        if installments < 1:
-            installments = 1
+        # Broj rata iz combo-a (indeks + 1 jer je 0 = 1 rata)
+        installments = self.installments_combo.currentIndex() + 1
 
         # Iznos rate (zaokruženo na 2 decimale)
         installment_amount = (price / installments).quantize(Decimal("0.01"))
@@ -435,6 +490,7 @@ class OrdersPage(QWidget):
         validation_error = self._validate_form()
         if validation_error:
             self._show_message(validation_error, error=True)
+            print(f"Validacija greška: {validation_error}")
             return
 
         customer_id = self.customer_combo.currentData()
@@ -448,7 +504,9 @@ class OrdersPage(QWidget):
         ).strip()
 
         price = self.price_input.text()
-        installments = self.installments_input.value()
+        installments = self.installments_combo.currentIndex() + 1
+
+        print(f"Čuvanje narudžbe: customer_id={customer_id}, campaign_id={campaign_id}, product={product_name}, price={price}, installments={installments}")
 
         try:
             order = self.order_service.create_order(
@@ -469,14 +527,18 @@ class OrdersPage(QWidget):
             self.product_combo.setCurrentIndex(-1)
             self.product_combo.clearEditText()
             self.price_input.clear()
-            self.installments_input.setValue(1)
+            self.installments_combo.setCurrentIndex(0)  # Reset na 1 ratu
             self._update_preview()
 
             self._load_orders()
 
         except ValueError as e:
+            print(f"ValueError: {e}")
             self._show_message(str(e), error=True)
         except Exception as e:
+            print(f"Exception: {e}")
+            import traceback
+            traceback.print_exc()
             self._show_message(f"Greška pri čuvanju: {str(e)}", error=True)
 
     def _validate_form(self) -> Optional[str]:
@@ -511,7 +573,7 @@ class OrdersPage(QWidget):
             return "Neispravna cijena."
 
         # Broj rata
-        installments = self.installments_input.value()
+        installments = self.installments_combo.currentIndex() + 1
         if installments < 1 or installments > 10:
             return "Broj rata mora biti između 1 i 10."
 
@@ -522,9 +584,67 @@ class OrdersPage(QWidget):
         self.product_combo.setCurrentIndex(-1)
         self.product_combo.clearEditText()
         self.price_input.clear()
-        self.installments_input.setValue(1)
+        self.installments_combo.setCurrentIndex(0)  # Reset na 1 ratu
         self._update_preview()
         self.message_label.hide()
+
+    def _on_order_selected(self) -> None:
+        """Poziva se kad se odabere red u tabeli narudžbi."""
+        row = self.table.currentRow()
+        # Omogući dugme za brisanje samo ako je red odabran
+        self.delete_btn.setEnabled(row >= 0)
+
+    def delete_selected_order(self) -> None:
+        """Briše odabranu narudžbu nakon potvrde."""
+        row = self.table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "Upozorenje", "Odaberite narudžbu za brisanje.")
+            return
+
+        # Dohvati ID narudžbe
+        id_item = self.table.item(row, 0)
+        if not id_item:
+            return
+
+        try:
+            order_id = int(id_item.text())
+        except ValueError:
+            return
+
+        # Dohvati detalje narudžbe za prikaz u potvrdi
+        order = self.order_service.get_order_details(order_id)
+        if not order:
+            QMessageBox.warning(self, "Greška", "Narudžba nije pronađena.")
+            return
+
+        # Potvrdni dijalog
+        confirm = QMessageBox.question(
+            self,
+            "Potvrdi brisanje",
+            f"Da li ste sigurni da želite obrisati narudžbu #{order.id}?\n\n"
+            f"Kupac: {order.customer.full_name if order.customer else 'N/A'}\n"
+            f"Proizvod: {order.product_name_snapshot}\n"
+            f"Ukupno: {order.total_price_snapshot:.2f} KM\n"
+            f"Rate: {order.installments_count}\n\n"
+            "Ova akcija će obrisati narudžbu i sve pripadajuće rate i uplate.\n"
+            "Ova akcija se ne može poništiti.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+
+        if confirm != QMessageBox.Yes:
+            return
+
+        # Briši narudžbu
+        try:
+            self.order_service.delete_order(order_id)
+            self._show_message(f"✅ Narudžba #{order_id} uspješno obrisana.", error=False)
+            self._load_orders()
+            self.delete_btn.setEnabled(False)
+        except ValueError as e:
+            self._show_message(str(e), error=True)
+        except Exception as e:
+            self._show_message(f"Greška pri brisanju: {str(e)}", error=True)
 
     def _show_message(self, message: str, error: bool = False) -> None:
         """Prikazuje poruku o uspjehu ili grešci."""
