@@ -96,6 +96,7 @@ get_current_month_installments()  # tabela rata ovog mjeseca
 - **0.18** - Dashboard period filter uklonjen, CustomersPage fix extra query, SQLite WAL mode
 - **0.19** - ReportsPage pojednostavljeno: samo "Izvještaj naplate — Excel" generator
 - **0.20** - CustomersPage redizajn: master-detail sa listom narudžbi kupca
+- **0.21** - OrdersPage: dodano polje "Broj ugovora" (contract_number) u formu i tabelu
 
 ### SVG Ikonice (icons.py)
 **19 ikona:** dashboard, customers, orders, campaigns, payments, reports, settings, backup, pricelist, import, refresh, delete, save, cart, search, credit-card, chart, calendar, alert
@@ -396,6 +397,26 @@ OrderService.get_orders_for_customer(customer_id: int) -> List[Order]
 - Aktivna → zelena (`#059669`)
 - Završena → siva (`#6b7280`)
 - Otkazana → crvena (`#dc2626`)
+
+### Broj Ugovora (v0.21)
+
+**OrderService:**
+```python
+OrderService.create_order(
+    customer_id, product_name, price, installments,
+    campaign_id=None,
+    contract_number=None  # NOVO: opciono
+)
+```
+
+**OrdersPage UI:**
+- **Forma:** Red 3 — "Broj ugovora" (opciono, placeholder: "npr. 4-1-11-2-1-3")
+- **Tabela:** Stupac 1 — "Br. ugovora"
+  - Plava boja (`#1d4ed8`) ako postoji broj
+  - "—" ako nema broja
+
+**Model:**
+- `Order.contract_number` — VARCHAR, nullable
 
 ### Narudžbe - Broj Rata
 ```python
