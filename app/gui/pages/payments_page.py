@@ -43,7 +43,10 @@ class PaymentsPage(QWidget):
         super().__init__()
         self._selected_installment_id: Optional[int] = None
         self._selected_installment_data: Optional[dict] = None
+        self._active_filter = "overdue"
+        self._selected_customer_id: Optional[int] = None
         self._init_ui()
+        self._load_customers()
         self._load_installments()
 
     # ------------------------------------------------------------------
@@ -77,12 +80,19 @@ class PaymentsPage(QWidget):
         layout.setContentsMargins(16, 0, 16, 0)
         layout.setSpacing(8)
 
+        # Padajući meni za kupce
+        self.customer_combo = QComboBox()
+        self.customer_combo.setPlaceholderText("Svi kupci")
+        self.customer_combo.setMinimumWidth(200)
+        self.customer_combo.setMaximumWidth(250)
+        self.customer_combo.currentIndexChanged.connect(self._load_installments)
+        layout.addWidget(self.customer_combo)
+
         # Search
         self.search_edit = QLineEdit()
         self.search_edit.setPlaceholderText("Pretraži po kupcu ili artiklu...")
-        search_icon = create_icon_label("search", "#9ca3af", 16)
-        search_icon.setStyleSheet("margin-right: 4px;")
-        self.search_edit.setStyleSheet("padding-left: 4px;")
+        self.search_edit.setMaximumWidth(250)
+        self.search_edit.textChanged.connect(self._load_installments)
         layout.addWidget(self.search_edit)
 
         layout.addSpacing(12)
@@ -384,18 +394,48 @@ class PaymentsPage(QWidget):
     # Učitavanje i filtriranje
     # ------------------------------------------------------------------
 
+    def _load_customers(self) -> None:
+        """Učitava kupce u padajući meni."""
+        from app.services.customer_service import CustomerService
+        
+        self.customer_combo.blockSignals(True)
+        self.customer_combo.clear()
+        self.customer_combo.addItem("Svi kupci", userData=None)
+        
+        customers = CustomerService.list_customers()
+        for customer in customers:
+            self.customer_combo.addItem(
+                customer.full_name,
+                userData=customer.id
+            )
+        
+        self.customer_combo.blockSignals(False)
+
     def _load_installments(self) -> None:
+        """Učitava rate sa filtrima."""
+        # Dobavi ID odabranog kupca
+        self._selected_customer_id = self.customer_combo.currentData()
+        
+        # Dobavi tekst pretrage
+        search_text = self.search_edit.text().strip()
+        
         try:
             installments = PaymentService.get_installments_for_payment(
                 filter_type=self._active_filter,
-                search=self.search_edit.text().strip()
+                search=search_text,
+                customer_id=self._selected_customer_id
             )
-        except Exception:
-            # Fallback ako servis nema filter_type parametar
+        except TypeError:
+            # Starija verzija servisa ne podržava customer_id
             try:
-                installments = PaymentService.get_installments_for_payment()
+                installments = PaymentService.get_installments_for_payment(
+                    filter_type=self._active_filter,
+                    search=search_text
+                )
             except Exception:
                 installments = []
+        except Exception:
+            installments = []
 
         self._populate_table(installments)
 

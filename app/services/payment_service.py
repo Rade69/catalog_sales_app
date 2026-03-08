@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
+from typing import Optional
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import joinedload
@@ -233,7 +234,8 @@ class PaymentService:
     @staticmethod
     def get_installments_for_payment(
         filter_type: str = "overdue",
-        search: str = ""
+        search: str = "",
+        customer_id: Optional[int] = None
     ) -> list:
         """
         Vraća rate za prikaz u PaymentsPage.
@@ -243,6 +245,9 @@ class PaymentService:
             'month'    — rate ovog mjeseca
             'unpaid'   — sve neplaćene rate
             'all'      — sve rate
+        customer_id:
+            None — svi kupci
+            int — samo rate za odabranog kupca
         """
         from sqlalchemy import and_, extract, func
 
@@ -284,6 +289,10 @@ class PaymentService:
             elif filter_type == "unpaid":
                 stmt = stmt.where(remaining_expr > 0)
             # 'all' — bez filtera
+
+            # Filter po kupcu
+            if customer_id is not None:
+                stmt = stmt.where(Customer.id == customer_id)
 
             # Search
             if search:
