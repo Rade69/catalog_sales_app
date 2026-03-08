@@ -373,12 +373,13 @@ class PaymentsPage(QWidget):
         history_layout.addWidget(history_title)
 
         self.history_table = QTableWidget()
-        self.history_table.setColumnCount(3)
-        self.history_table.setHorizontalHeaderLabels(["Datum", "Iznos (KM)", "Napomena"])
+        self.history_table.setColumnCount(4)
+        self.history_table.setHorizontalHeaderLabels(["Datum", "Iznos (KM)", "Napomena", ""])
         hh = self.history_table.horizontalHeader()
         hh.setSectionResizeMode(0, QHeaderView.ResizeToContents)
         hh.setSectionResizeMode(1, QHeaderView.ResizeToContents)
         hh.setSectionResizeMode(2, QHeaderView.Stretch)
+        hh.setSectionResizeMode(3, QHeaderView.ResizeToContents)
         self.history_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.history_table.verticalHeader().setVisible(False)
         self.history_table.setMaximumHeight(160)
@@ -704,7 +705,54 @@ class PaymentsPage(QWidget):
                 i, 2, QTableWidgetItem(payment.note or "")
             )
 
+            # Dugme za brisanje uplate
+            delete_btn = QPushButton("🗑")
+            delete_btn.setToolTip("Obriši ovu uplatu")
+            delete_btn.setFixedSize(28, 28)
+            delete_btn.setStyleSheet("""
+                QPushButton {
+                    background: transparent;
+                    color: #dc2626;
+                    border: 1px solid #fca5a5;
+                    border-radius: 6px;
+                    font-size: 14px;
+                }
+                QPushButton:hover {
+                    background: #fef2f2;
+                }
+            """)
+            payment_id = payment.id
+            iznos_str = f"{payment.amount:.2f}"
+            delete_btn.clicked.connect(
+                lambda checked=False, pid=payment_id, izn=iznos_str:
+                self._delete_payment(pid, izn)
+            )
+            self.history_table.setCellWidget(i, 3, delete_btn)
+
         self.history_frame.setVisible(True)
+
+    def _delete_payment(self, payment_id: int, iznos: str) -> None:
+        """Briše uplatu nakon potvrde."""
+        reply = QMessageBox.question(
+            self,
+            "Potvrda brisanja uplate",
+            f"Da li sigurno želiš obrisati uplatu od {iznos} KM?\n\n"
+            "Status rate i narudžbe će biti automatski ažurirani.\n"
+            "Ova radnja se ne može poništiti.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
+            return
+
+        try:
+            PaymentService.delete_payment(payment_id)
+            # Osvježi panel i tabelu
+            if self._selected_installment_id:
+                self._show_installment_details(self._selected_installment_id)
+            self._load_installments()
+        except Exception as exc:
+            QMessageBox.warning(self, "Greška", str(exc))
 
     # ------------------------------------------------------------------
     # Lifecycle
