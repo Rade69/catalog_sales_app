@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from sqlalchemy import func, or_, select
 
 from app.database.database import session_scope
@@ -7,6 +9,15 @@ from app.database.models import Customer
 
 
 class CustomerService:
+    @staticmethod
+    def get_customer(customer_id: int) -> Optional[Customer]:
+        """Dohvaća jednog kupca po ID-u."""
+        with session_scope() as session:
+            customer = session.get(Customer, customer_id)
+            if customer is not None:
+                session.expunge(customer)
+            return customer
+
     @staticmethod
     def list_customers(search_text: str = "") -> list[Customer]:
         with session_scope() as session:

@@ -155,10 +155,14 @@ class CustomersPage(QWidget):
         if customer_id_item is None:
             return
         customer_id = customer_id_item.data(Qt.UserRole)
-        customers = CustomerService.list_customers(self.search_input.text())
-        selected = next((c for c in customers if c.id == customer_id), None)
+        if not customer_id:
+            return
+
+        # Direktno dohvati kupca po ID-u — bez ponovnog listinga
+        selected = CustomerService.get_customer(customer_id)
         if selected is None:
             return
+
         self.selected_customer_id = selected.id
         self.full_name_input.setText(selected.full_name)
         self.phone_input.setText(selected.phone or "")

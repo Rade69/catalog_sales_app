@@ -70,7 +70,7 @@ class DashboardPage(QWidget):
         main_layout.addWidget(tables_section, 1)
 
     def _create_controls_row(self) -> QFrame:
-        """Kreira red sa kontrolama (period + dugme)."""
+        """Kreira red sa kontrolama (dugme za izvještaj)."""
         row = QFrame()
         row.setStyleSheet("background-color: transparent; border: none;")
 
@@ -79,16 +79,6 @@ class DashboardPage(QWidget):
         layout.setSpacing(12)
 
         layout.addStretch(1)
-
-        # Dropdown za period
-        period_label = QLabel("Period:")
-        period_label.setStyleSheet("color: #6b7280; font-size: 13px; font-weight: 500;")
-        layout.addWidget(period_label)
-
-        self.period_combo = QComboBox()
-        self.period_combo.addItems(["Ovaj mjesec", "Prošli mjesec", "Ova godina", "Sve"])
-        self.period_combo.setFixedWidth(160)
-        layout.addWidget(self.period_combo)
 
         # Primary dugme
         self.report_btn = QPushButton("+ Novi izvještaj")
