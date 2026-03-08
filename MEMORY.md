@@ -172,6 +172,8 @@ PaymentService.get_installments_for_payment(
 )
 ```
 
+**Napomena:** `Installment.paid_amount` je property bez settera, pa se koristi `_paid_amount_value` za privremeno čuvanje izračunate vrijednosti.
+
 ### Fix DetachedInstanceError
 ```python
 # U create_order() i get_order_details()
