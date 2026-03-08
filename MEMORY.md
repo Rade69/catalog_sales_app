@@ -91,6 +91,7 @@ get_current_month_installments()  # tabela rata ovog mjeseca
 - **0.13** - Excel izvještaj naplate: format "EVIDENCIJA O UPLATAMA RATA"
 - **0.14** - Fix N+1 query u sync_statuses(), uklonjen mrtav kod iz PaymentService
 - **0.15** - InstallmentsPage: prava stranica za pregled svih rata (zamjena placeholder-a)
+- **0.16** - PaymentsPage: dodano "Obriši uplatu" dugme u historiji uplata
 
 ### SVG Ikonice (icons.py)
 **19 ikona:** dashboard, customers, orders, campaigns, payments, reports, settings, backup, pricelist, import, refresh, delete, save, cart, search, credit-card, chart, calendar, alert
@@ -173,6 +174,7 @@ PaymentService.get_installments_for_payment(
     search='',
     customer_id=None  # Novo: filtriranje po kupcu
 )
+PaymentService.delete_payment(payment_id)  # Briše uplatu i ažurira statuse
 ```
 
 **Napomena:** `Installment.paid_amount` je property bez settera, pa se koristi `_paid_amount_value` za privremeno čuvanje izračunate vrijednosti.
@@ -288,6 +290,32 @@ _STATUS_LABEL = {
 **Service:** Koristi isti `PaymentService.get_installments_for_payment()` kao i `PaymentsPage`.
 
 **Napomena:** Stranica je read-only (samo pregled). Uplata se radi na stranici "Uplate".
+
+### Obriši Uplatu (v0.16)
+
+**Fajl:** `app/gui/pages/payments_page.py`
+
+**Lokacija:** Panel "Historija uplata ove rate" (desni panel)
+
+**Implementacija:**
+- History tabela ima 4 stupca: Datum, Iznos (KM), Napomena, [Akcija]
+- 4. stupac sadrži 🗑 dugme (28x28px, crveni border)
+- Klik na 🗑 → potvrdni dijalog sa iznosom uplate
+- Potvrda → `PaymentService.delete_payment(payment_id)`
+- Nakon brisanja: automatsko osvježavanje tabele i info panela
+
+**Metoda:**
+```python
+def _delete_payment(self, payment_id: int, iznos: str) -> None:
+    """Briše uplatu nakon potvrde."""
+    # Potvrdni dijalog
+    # Poziva PaymentService.delete_payment()
+    # Osvježava: _show_installment_details() i _load_installments()
+```
+
+**Napomena:** `PaymentService.delete_payment()` automatski ažurira:
+- Status rate (paid → partially_paid ili overdue)
+- Status narudžbe (completed → active)
 
 ### Narudžbe - Broj Rata
 ```python
