@@ -304,11 +304,10 @@ def generate_naplata_excel(
 
         # Border na svim ćelijama reda
         for col in range(COL_RBR, LAST_COL + 1):
-            ws.cell(row=current_row, column=col).border = _thin_border()
-            ws.cell(row=current_row, column=col).font = (
-                ws.cell(row=current_row, column=col).font
-                or _normal()
-            )
+            cell = ws.cell(row=current_row, column=col)
+            cell.border = _thin_border()
+            if not cell.font or cell.font.size is None:
+                cell.font = _normal()
 
         # Alternativne boje redova
         if row_data["rbr"] % 2 == 0:
