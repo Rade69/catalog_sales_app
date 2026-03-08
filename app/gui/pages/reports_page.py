@@ -127,7 +127,6 @@ class ReportsPage(QWidget):
         buttons.addWidget(self.preview_btn)
         buttons.addWidget(self.export_btn)
         filters_layout.addLayout(buttons)
-        filters_layout.addStretch(1)
 
         table_card = QFrame()
         table_card.setProperty("card", True)
@@ -146,6 +145,8 @@ class ReportsPage(QWidget):
         style_table(self.table)
         self.table.horizontalHeader().setStretchLastSection(True)
         table_layout.addWidget(self.table)
+
+        filters_layout.addWidget(table_card)
 
         return filters_card
 
