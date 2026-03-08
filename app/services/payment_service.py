@@ -307,12 +307,16 @@ class PaymentService:
             installments = list(session.execute(stmt).scalars().unique())
 
             # Izračunaj paid_amount za svaku ratu i sačuvaj u _paid_amount_value
-            # (paid_amount je property u modelu i ne može se postaviti direktno)
+            # Expunge-uj sve objekte da ostanu upotrebljivi van sesije
             for inst in installments:
                 paid = sum(
                     (p.amount for p in inst.payments), Decimal("0.00")
                 )
                 object.__setattr__(inst, '_paid_amount_value', paid)
+                # Expunge order i customer eksplicitno
+                if inst.order and inst.order.customer:
+                    session.expunge(inst.order.customer)
+                    session.expunge(inst.order)
                 session.expunge(inst)
 
             return installments
