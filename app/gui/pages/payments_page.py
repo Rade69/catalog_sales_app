@@ -410,31 +410,39 @@ class PaymentsPage(QWidget):
             )
         
         self.customer_combo.blockSignals(False)
+        print(f"Učitano {self.customer_combo.count()} kupaca u dropdown")
 
     def _load_installments(self) -> None:
         """Učitava rate sa filtrima."""
         # Dobavi ID odabranog kupca
-        self._selected_customer_id = self.customer_combo.currentData()
+        customer_id = self.customer_combo.currentData()
         
         # Dobavi tekst pretrage
         search_text = self.search_edit.text().strip()
+        
+        print(f"_load_installments: filter={self._active_filter}, customer_id={customer_id}, search='{search_text}'")
         
         try:
             installments = PaymentService.get_installments_for_payment(
                 filter_type=self._active_filter,
                 search=search_text,
-                customer_id=self._selected_customer_id
+                customer_id=customer_id
             )
-        except TypeError:
+            print(f"  Vraćeno {len(installments)} rata")
+        except TypeError as e:
             # Starija verzija servisa ne podržava customer_id
+            print(f"  TypeError: {e}, pokušavam bez customer_id...")
             try:
                 installments = PaymentService.get_installments_for_payment(
                     filter_type=self._active_filter,
                     search=search_text
                 )
-            except Exception:
+                print(f"  Vraćeno {len(installments)} rata (bez customer_id)")
+            except Exception as e2:
+                print(f"  Greška: {e2}")
                 installments = []
-        except Exception:
+        except Exception as e:
+            print(f"  Greška: {e}")
             installments = []
 
         self._populate_table(installments)
@@ -490,7 +498,7 @@ class PaymentsPage(QWidget):
             self.installments_table.setItem(i, 4, iznos_item)
 
             # Plaćeno
-            paid = inst.paid_amount if hasattr(inst, 'paid_amount') else Decimal("0")
+            paid = getattr(inst, '_paid_amount_value', Decimal("0"))
             paid_item = QTableWidgetItem(f"{Decimal(str(paid)):.2f}")
             paid_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             if paid > 0:
@@ -516,9 +524,13 @@ class PaymentsPage(QWidget):
         self.count_label.setText(f"{len(installments)} rata")
 
     def _set_filter(self, key: str) -> None:
+        """Postavlja aktivni filter i učitava rate."""
         for k, btn in self.filter_buttons.items():
             btn.setChecked(k == key)
         self._active_filter = key
+        # Eksplicitno čitaj customer_id prije učitavanja
+        self._selected_customer_id = self.customer_combo.currentData()
+        print(f"Filter: {key}, customer_id: {self._selected_customer_id}, customer_name: {self.customer_combo.currentText()}")
         self._load_installments()
 
     def _apply_filters(self) -> None:
@@ -561,7 +573,7 @@ class PaymentsPage(QWidget):
         )
 
         amount = Decimal(str(details.amount))
-        paid = details.paid_amount if hasattr(details, 'paid_amount') else Decimal("0")
+        paid = getattr(details, '_paid_amount_value', Decimal("0"))
         remaining = amount - Decimal(str(paid))
         if remaining < 0:
             remaining = Decimal("0")

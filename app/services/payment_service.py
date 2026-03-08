@@ -306,12 +306,13 @@ class PaymentService:
 
             installments = list(session.execute(stmt).scalars().unique())
 
-            # Izračunaj paid_amount za svaku ratu i prikvači kao atribut
+            # Izračunaj paid_amount za svaku ratu i sačuvaj u _paid_amount_value
+            # (paid_amount je property u modelu i ne može se postaviti direktno)
             for inst in installments:
                 paid = sum(
                     (p.amount for p in inst.payments), Decimal("0.00")
                 )
-                inst.paid_amount = paid
+                object.__setattr__(inst, '_paid_amount_value', paid)
                 session.expunge(inst)
 
             return installments
@@ -327,7 +328,7 @@ class PaymentService:
             if not inst:
                 return None
             paid = sum((p.amount for p in inst.payments), Decimal("0.00"))
-            inst.paid_amount = paid
+            object.__setattr__(inst, '_paid_amount_value', paid)
             session.expunge(inst)
             return inst
 
