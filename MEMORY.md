@@ -95,6 +95,7 @@ get_current_month_installments()  # tabela rata ovog mjeseca
 - **0.17** - Sitni bugovi i cleanup (naslov, duplikati, print() linije)
 - **0.18** - Dashboard period filter uklonjen, CustomersPage fix extra query, SQLite WAL mode
 - **0.19** - ReportsPage pojednostavljeno: samo "Izvještaj naplate — Excel" generator
+- **0.20** - CustomersPage redizajn: master-detail sa listom narudžbi kupca
 
 ### SVG Ikonice (icons.py)
 **19 ikona:** dashboard, customers, orders, campaigns, payments, reports, settings, backup, pricelist, import, refresh, delete, save, cart, search, credit-card, chart, calendar, alert
@@ -362,6 +363,39 @@ def get_customer(customer_id: int) -> Optional[Customer]:
 **Fajlovi:**
 - `app/gui/pages/reports_page.py` — samo `_build_naplata_card()`
 - `app/reports/naplata_report.py` — generator Excel izvještaja
+
+### CustomersPage Redizajn (v0.20)
+
+**Prije:** Forma lijevo + lista kupaca desno (bez narudžbi)
+
+**Sada:** Master-detail layout (QSplitter)
+
+**Lijevo (1/3, 280-380px):**
+- Naslov "Kupci"
+- Pretraga (ime, telefon, grad)
+- Tabela: Ime i prezime, Grad
+- Dugmad: "+ Novi kupac" (primary), "Obriši" (secondary)
+- Brojač: "X kupaca"
+
+**Desno (2/3):**
+- Placeholder: "← Odaberi kupca iz liste..."
+- Kartica kupca (sakrivena dok nema selekcije):
+  - **Forma:** Ime, Telefon, Mjesto, Adresa, Napomena
+  - **Dugmad:** "💾 Sačuvaj izmjene", "Odustani"
+  - **Tabela narudžbi:** Br. ugovora, Artikal, Cijena, Rata, Datum, Status
+
+**Nova Servisna Metoda:**
+```python
+OrderService.get_orders_for_customer(customer_id: int) -> List[Order]
+```
+
+**Prečice:**
+- `Ctrl+N` — Novi kupac
+
+**Statusi Narudžbi (boje):**
+- Aktivna → zelena (`#059669`)
+- Završena → siva (`#6b7280`)
+- Otkazana → crvena (`#dc2626`)
 
 ### Narudžbe - Broj Rata
 ```python
