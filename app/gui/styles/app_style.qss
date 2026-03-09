@@ -78,8 +78,8 @@
 QWidget {
     background-color: #f9fafb;
     color: #1f2937;
-    font-family: "Segoe UI", "Liberation Sans", "DejaVu Sans", Arial, sans-serif;
-    font-size: 13px;
+    font-family: "Segoe UI", "Liberation Sans", "DejaVu Sans", Arial, "Noto Color Emoji", "Noto Emoji", sans-serif;
+    font-size: 15px;
 }
 
 /* QLabel mora biti transparentan da ne bi prekrivao pozadinu roditelja */
@@ -122,10 +122,10 @@ QPushButton[nav="true"] {
     text-align: left;
     padding: 12px 16px;
     border-radius: 8px;
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
     margin: 4px 10px;
-    min-height: 46px;
+    min-height: 50px;
 }
 
 QPushButton[nav="true"]:hover {
@@ -172,14 +172,14 @@ QPushButton[backup="true"]:pressed {
 }
 
 #PageTitle {
-    font-size: 22px;
+    font-size: 24px;
     font-weight: 700;
     color: #ffffff;
 }
 
 #PageSubtitle {
     color: #c5d5f0;
-    font-size: 13px;
+    font-size: 15px;
     margin-top: 4px;
 }
 
@@ -242,8 +242,8 @@ QPushButton[primary="true"] {
     border-radius: 8px;
     padding: 10px 20px;
     font-weight: 700;
-    font-size: 13px;
-    min-height: 40px;
+    font-size: 15px;
+    min-height: 44px;
 }
 
 QPushButton[primary="true"]:hover {
@@ -267,8 +267,8 @@ QPushButton[secondary="true"] {
     border-radius: 8px;
     padding: 10px 20px;
     font-weight: 600;
-    font-size: 13px;
-    min-height: 40px;
+    font-size: 15px;
+    min-height: 44px;
 }
 
 QPushButton[secondary="true"]:hover {
@@ -288,8 +288,8 @@ QPushButton[danger="true"] {
     border-radius: 8px;
     padding: 10px 20px;
     font-weight: 700;
-    font-size: 13px;
-    min-height: 40px;
+    font-size: 15px;
+    min-height: 44px;
 }
 
 QPushButton[danger="true"]:hover {
@@ -348,8 +348,8 @@ QPushButton {
     border-radius: 8px;
     padding: 8px 16px;
     font-weight: 500;
-    font-size: 13px;
-    min-height: 36px;
+    font-size: 15px;
+    min-height: 40px;
 }
 
 QPushButton:hover {
@@ -376,7 +376,7 @@ QTableWidget {
 }
 
 QTableWidget::item {
-    padding: 10px 12px;
+    padding: 12px 14px;
     border-bottom: 1px solid #f3f4f6;
 }
 
@@ -393,8 +393,8 @@ QHeaderView::section {
     background-color: #f3f4f6;
     color: #374151;
     font-weight: 700;
-    font-size: 13px;
-    padding: 12px 8px;
+    font-size: 14px;
+    padding: 14px 10px;
     border: none;
     border-bottom: 2px solid #e5e7eb;
     text-transform: uppercase;
@@ -417,8 +417,8 @@ QPlainTextEdit {
     background-color: #ffffff;
     border: 1px solid #d1d5db;
     border-radius: 8px;
-    padding: 8px 12px;
-    font-size: 13px;
+    padding: 10px 14px;
+    font-size: 15px;
     color: #1f2937;
     selection-background-color: #2563eb;
     selection-color: #ffffff;
@@ -449,10 +449,10 @@ QComboBox {
     background-color: #ffffff;
     border: 1px solid #d1d5db;
     border-radius: 8px;
-    padding: 8px 12px;
-    font-size: 13px;
+    padding: 10px 14px;
+    font-size: 15px;
     color: #1f2937;
-    min-height: 40px;
+    min-height: 44px;
 }
 
 QComboBox:focus {
@@ -645,12 +645,12 @@ QLabel[kpiTitle="true"] {
 
 QLabel[kpiValue="true"] {
     color: #111827;
-    font-size: 32px;
+    font-size: 36px;
     font-weight: 800;
 }
 
 QLabel[sectionTitle="true"] {
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 700;
     color: #1f2937;
 }

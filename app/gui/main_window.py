@@ -194,9 +194,10 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(12, 8, 12, 8)
         layout.setSpacing(12)
 
-        # Cloud ikonica
-        icon_label = QLabel("☁️")
-        icon_label.setStyleSheet("font-size: 18px;")
+        # Backup ikonica (SVG)
+        icon_label = QLabel()
+        icon_label.setFixedSize(20, 20)
+        icon_label.setPixmap(get_pixmap("backup", "#ffffff", 20))
         layout.addWidget(icon_label)
 
         # Tekst

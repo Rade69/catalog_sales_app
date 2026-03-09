@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.gui.icons import get_pixmap
 from app.gui.table_helpers import style_table, show_empty_state, create_numeric_item
 from app.services.dashboard_service import (
     DashboardService,
@@ -120,7 +121,7 @@ class DashboardPage(QWidget):
         # Kartica 1: Kupci (plava)
         kpi1 = self._create_kpi_card(
             title="KUPCI", value="—", footer="Baza kupaca",
-            color="#2563eb", card_type="kupci", icon="👥"
+            color="#2563eb", card_type="kupci", icon="customers"
         )
         layout.addWidget(kpi1, 0, 0)
         self.kpi_cards.append(kpi1)
@@ -128,7 +129,7 @@ class DashboardPage(QWidget):
         # Kartica 2: Aktivne Narudžbe (svijetlo plava)
         kpi2 = self._create_kpi_card(
             title="AKTIVNE NARUDŽBE", value="—", footer="Sa neplaćenim ratama",
-            color="#3b82f6", card_type="narudzbe", icon="📦"
+            color="#3b82f6", card_type="narudzbe", icon="orders"
         )
         layout.addWidget(kpi2, 0, 1)
         self.kpi_cards.append(kpi2)
@@ -136,7 +137,7 @@ class DashboardPage(QWidget):
         # Kartica 3: Preostali Dug (crvena)
         kpi3 = self._create_kpi_card(
             title="PREOSTALI DUG", value="—", footer="Aktivna potraživanja",
-            color="#dc2626", card_type="dug", icon="💳"
+            color="#dc2626", card_type="dug", icon="credit-card"
         )
         layout.addWidget(kpi3, 0, 2)
         self.kpi_cards.append(kpi3)
@@ -144,7 +145,7 @@ class DashboardPage(QWidget):
         # Kartica 4: Naplaćeno Ovaj Mjesec (zelena)
         kpi4 = self._create_kpi_card(
             title="NAPLAĆENO OVAJ MJES.", value="—", footer="Tekući mjesec",
-            color="#16a34a", card_type="naplaceno", icon="💰"
+            color="#16a34a", card_type="naplaceno", icon="payments"
         )
         layout.addWidget(kpi4, 0, 3)
         self.kpi_cards.append(kpi4)
@@ -191,8 +192,10 @@ class DashboardPage(QWidget):
         title_row = QHBoxLayout()
         title_row.setSpacing(6)
         if icon:
-            icon_lbl = QLabel(icon)
-            icon_lbl.setStyleSheet("font-size: 16px; border: none; background: transparent;")
+            icon_lbl = QLabel()
+            icon_lbl.setFixedSize(20, 20)
+            icon_lbl.setPixmap(get_pixmap(icon, color, 20))
+            icon_lbl.setStyleSheet("border: none; background: transparent;")
             title_row.addWidget(icon_lbl)
         title_lbl = QLabel(title)
         title_lbl.setStyleSheet(
@@ -268,7 +271,7 @@ class DashboardPage(QWidget):
         border_col  = "#fca5a5"  if is_overdue else "#fdba74"
         title_color = "#991b1b"  if is_overdue else "#9a3412"
         value_color = "#dc2626"  if is_overdue else "#ea580c"
-        icon        = "⚠"        if is_overdue else "📅"
+        icon_name   = "alert"    if is_overdue else "calendar"
 
         card = QFrame()
         card.setProperty("statusCard", True)
@@ -288,12 +291,22 @@ class DashboardPage(QWidget):
         layout.setSpacing(4)
 
         # Naslov sa ikonom
-        title_lbl = QLabel(f"{icon}  {title}")
+        title_row = QHBoxLayout()
+        title_row.setSpacing(6)
+        title_row.setContentsMargins(0, 0, 0, 0)
+        icon_lbl = QLabel()
+        icon_lbl.setFixedSize(16, 16)
+        icon_lbl.setPixmap(get_pixmap(icon_name, title_color, 16))
+        icon_lbl.setStyleSheet("border: none; background: transparent;")
+        title_row.addWidget(icon_lbl)
+        title_lbl = QLabel(title)
         title_lbl.setStyleSheet(
             f"color: {title_color}; font-size: 11px; font-weight: 700; "
             f"letter-spacing: 0.05em; border: none; background: transparent;"
         )
-        layout.addWidget(title_lbl)
+        title_row.addWidget(title_lbl)
+        title_row.addStretch(1)
+        layout.addLayout(title_row)
 
         # Vrijednost
         value_label = QLabel(value)
