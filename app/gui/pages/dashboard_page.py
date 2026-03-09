@@ -1,18 +1,17 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from datetime import date
 from typing import List
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
-    QComboBox,
     QFrame,
     QGridLayout,
     QHBoxLayout,
     QHeaderView,
     QLabel,
-    QPushButton,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -33,8 +32,7 @@ class DashboardPage(QWidget):
     Dashboard stranica - početni pregled poslovanja.
 
     Layout prema referentnom mockupu:
-    - TOP BAR: Tamno plavi header (#1f4f9f) sa naslovom i kontrolama
-    - CONTENT AREA: Svijetlo siva pozadina (#f5f7fb) sa 30px paddingom
+    - HEADER: Informativna traka sa datumom
     - RED 1: 4 KPI kartice (Kupci, Aktivne Narudžbe, Preostali Dug, Naplaćeno Ovaj Mjesec)
     - RED 2: 2 Status kartice (Rate koje Kasne, Rate ovog Mjeseca)
     - RED 3: 2 Tabele u card sekcijama (Uplate po mjesecima, Rate ovog mjeseca)
@@ -54,9 +52,9 @@ class DashboardPage(QWidget):
         main_layout.setContentsMargins(20, 16, 20, 16)
         main_layout.setSpacing(14)
 
-        # Kontrolna traka: period + dugme
-        controls_row = self._create_controls_row()
-        main_layout.addWidget(controls_row)
+        # Header traka sa datumom
+        header = self._create_header_row()
+        main_layout.addWidget(header)
 
         # RED 1: KPI Kartice (4 komada)
         kpi_section = self._create_kpi_section()
@@ -70,23 +68,40 @@ class DashboardPage(QWidget):
         tables_section = self._create_tables_section()
         main_layout.addWidget(tables_section, 1)
 
-    def _create_controls_row(self) -> QFrame:
-        """Kreira red sa kontrolama (dugme za izvještaj)."""
+    def _create_header_row(self) -> QFrame:
+        """Kreira header traku sa datumom."""
+        _BS_DAYS = {
+            0: "Ponedjeljak", 1: "Utorak", 2: "Srijeda",
+            3: "Četvrtak",    4: "Petak",  5: "Subota", 6: "Nedjelja"
+        }
+        _BS_MONTHS = {
+            1: "januara", 2: "februara", 3: "marta", 4: "aprila",
+            5: "maja", 6: "juna", 7: "jula", 8: "augusta",
+            9: "septembra", 10: "oktobra", 11: "novembra", 12: "decembra"
+        }
+        today = date.today()
+        date_str = (
+            f"{_BS_DAYS[today.weekday()]}, "
+            f"{today.day}. {_BS_MONTHS[today.month]} {today.year}."
+        )
+
         row = QFrame()
-        row.setStyleSheet("background-color: transparent; border: none;")
-
+        row.setStyleSheet("background: transparent; border: none;")
         layout = QHBoxLayout(row)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(12)
+        layout.setContentsMargins(0, 0, 0, 4)
 
+        title = QLabel("Kontrolna tabla")
+        title.setStyleSheet(
+            "font-size: 20px; font-weight: 800; color: #111827; border: none;"
+        )
+        date_label = QLabel(date_str)
+        date_label.setStyleSheet(
+            "font-size: 13px; color: #9ca3af; border: none;"
+        )
+
+        layout.addWidget(title)
         layout.addStretch(1)
-
-        # Primary dugme
-        self.report_btn = QPushButton("+ Novi izvještaj")
-        self.report_btn.setProperty("primary", True)
-        self.report_btn.setFixedHeight(36)
-        layout.addWidget(self.report_btn)
-
+        layout.addWidget(date_label)
         return row
 
     def _create_kpi_section(self) -> QFrame:
@@ -104,44 +119,32 @@ class DashboardPage(QWidget):
 
         # Kartica 1: Kupci (plava)
         kpi1 = self._create_kpi_card(
-            title="KUPCI",
-            value="—",
-            footer="Baza kupaca",
-            color="#2563eb",
-            card_type="kupci"
+            title="KUPCI", value="—", footer="Baza kupaca",
+            color="#2563eb", card_type="kupci", icon="👥"
         )
         layout.addWidget(kpi1, 0, 0)
         self.kpi_cards.append(kpi1)
 
         # Kartica 2: Aktivne Narudžbe (svijetlo plava)
         kpi2 = self._create_kpi_card(
-            title="AKTIVNE NARUDŽBE",
-            value="—",
-            footer="Sa neplaćenim ratama",
-            color="#3b82f6",
-            card_type="narudzbe"
+            title="AKTIVNE NARUDŽBE", value="—", footer="Sa neplaćenim ratama",
+            color="#3b82f6", card_type="narudzbe", icon="📦"
         )
         layout.addWidget(kpi2, 0, 1)
         self.kpi_cards.append(kpi2)
 
         # Kartica 3: Preostali Dug (crvena)
         kpi3 = self._create_kpi_card(
-            title="PREOSTALI DUG",
-            value="—",
-            footer="Aktivna potraživanja",
-            color="#dc2626",
-            card_type="dug"
+            title="PREOSTALI DUG", value="—", footer="Aktivna potraživanja",
+            color="#dc2626", card_type="dug", icon="💳"
         )
         layout.addWidget(kpi3, 0, 2)
         self.kpi_cards.append(kpi3)
 
         # Kartica 4: Naplaćeno Ovaj Mjesec (zelena)
         kpi4 = self._create_kpi_card(
-            title="NAPLACENO OVAJ MJES.",
-            value="—",
-            footer="Tekući mjesec",
-            color="#16a34a",
-            card_type="naplaceno"
+            title="NAPLAĆENO OVAJ MJES.", value="—", footer="Tekući mjesec",
+            color="#16a34a", card_type="naplaceno", icon="💰"
         )
         layout.addWidget(kpi4, 0, 3)
         self.kpi_cards.append(kpi4)
@@ -154,34 +157,67 @@ class DashboardPage(QWidget):
         value: str,
         footer: str,
         color: str,
-        card_type: str
+        card_type: str,
+        icon: str = "",
     ) -> QFrame:
-        """Kreira pojedinačnu KPI karticu."""
+        """Kreira pojedinačnu KPI karticu sa obojenom gornjom trakom i ikonom."""
+        # Mapa accent → blaga pozadina
+        bg_map = {
+            "#2563eb": "#eff6ff",   # plava
+            "#3b82f6": "#eff6ff",   # plava varijanta
+            "#dc2626": "#fef2f2",   # crvena
+            "#16a34a": "#f0fdf4",   # zelena
+        }
+        bg_color = bg_map.get(color, "#f9fafb")
+
         card = QFrame()
         card.setProperty("kpiCard", True)
         card.setProperty("cardType", card_type)
-        card.setFixedHeight(115)
+        card.setFixedHeight(120)
+        card.setStyleSheet(f"""
+            QFrame[kpiCard="true"] {{
+                background: {bg_color};
+                border: 1px solid #e5e7eb;
+                border-top: 4px solid {color};
+                border-radius: 10px;
+            }}
+        """)
 
         layout = QVBoxLayout(card)
         layout.setContentsMargins(18, 14, 18, 14)
-        layout.setSpacing(6)
+        layout.setSpacing(4)
 
-        # Naslov
-        title_label = QLabel(title)
-        title_label.setStyleSheet(f"color: #6b7280; font-size: 11px; font-weight: 700;")
-        layout.addWidget(title_label)
+        # Naslov sa ikonom
+        title_row = QHBoxLayout()
+        title_row.setSpacing(6)
+        if icon:
+            icon_lbl = QLabel(icon)
+            icon_lbl.setStyleSheet("font-size: 16px; border: none; background: transparent;")
+            title_row.addWidget(icon_lbl)
+        title_lbl = QLabel(title)
+        title_lbl.setStyleSheet(
+            "color: #6b7280; font-size: 11px; font-weight: 700; "
+            "letter-spacing: 0.05em; border: none; background: transparent;"
+        )
+        title_row.addWidget(title_lbl)
+        title_row.addStretch(1)
+        layout.addLayout(title_row)
 
         # Vrijednost (velika)
         value_label = QLabel(value)
-        value_label.setStyleSheet(f"color: #111827; font-size: 28px; font-weight: 800;")
+        value_label.setStyleSheet(
+            f"color: #111827; font-size: 30px; font-weight: 800; "
+            f"border: none; background: transparent;"
+        )
         layout.addWidget(value_label)
 
         # Footer
         footer_label = QLabel(footer)
-        footer_label.setStyleSheet(f"color: {color}; font-size: 12px; font-weight: 600;")
+        footer_label.setStyleSheet(
+            f"color: {color}; font-size: 12px; font-weight: 600; "
+            f"border: none; background: transparent;"
+        )
         layout.addWidget(footer_label)
-
-        layout.addStretch(1)
 
         # Sačuvaj reference
         card._value_label = value_label
@@ -224,41 +260,56 @@ class DashboardPage(QWidget):
         title: str,
         value: str,
         footer: str,
-        status_type: str
+        status_type: str,
     ) -> QFrame:
-        """Kreira status karticu sa alert stilom."""
-        is_overdue = status_type == "overdue"
-        title_color = "#991b1b" if is_overdue else "#9a3412"
-        value_color = "#dc2626" if is_overdue else "#ea580c"
-        footer_color = "#b91c1c" if is_overdue else "#9a3412"
+        """Kreira status karticu sa alert stilom i obojenom pozadinom."""
+        is_overdue  = status_type == "overdue"
+        bg_color    = "#fef2f2"  if is_overdue else "#fff7ed"
+        border_col  = "#fca5a5"  if is_overdue else "#fdba74"
+        title_color = "#991b1b"  if is_overdue else "#9a3412"
+        value_color = "#dc2626"  if is_overdue else "#ea580c"
+        icon        = "⚠"        if is_overdue else "📅"
 
         card = QFrame()
         card.setProperty("statusCard", True)
         card.setProperty("statusType", status_type)
-        card.setFixedHeight(105)
+        card.setFixedHeight(110)
+        card.setStyleSheet(f"""
+            QFrame[statusCard="true"] {{
+                background: {bg_color};
+                border: 1px solid {border_col};
+                border-left: 5px solid {value_color};
+                border-radius: 10px;
+            }}
+        """)
 
         layout = QVBoxLayout(card)
         layout.setContentsMargins(18, 14, 18, 14)
-        layout.setSpacing(6)
+        layout.setSpacing(4)
 
-        # Naslov
-        title_label = QLabel(title)
-        title_label.setProperty("statusTitle", True)
-        title_label.setStyleSheet(f"color: {title_color}; font-size: 11px; font-weight: 700;")
-        layout.addWidget(title_label)
+        # Naslov sa ikonom
+        title_lbl = QLabel(f"{icon}  {title}")
+        title_lbl.setStyleSheet(
+            f"color: {title_color}; font-size: 11px; font-weight: 700; "
+            f"letter-spacing: 0.05em; border: none; background: transparent;"
+        )
+        layout.addWidget(title_lbl)
 
-        # Vrijednost (velika)
+        # Vrijednost
         value_label = QLabel(value)
-        value_label.setProperty("statusValue", True)
-        value_label.setStyleSheet(f"color: {value_color}; font-size: 32px; font-weight: 800;")
+        value_label.setStyleSheet(
+            f"color: {value_color}; font-size: 34px; font-weight: 800; "
+            f"border: none; background: transparent;"
+        )
         layout.addWidget(value_label)
 
         # Footer
         footer_label = QLabel(footer)
-        footer_label.setStyleSheet(f"color: {footer_color}; font-size: 12px; font-weight: 600;")
+        footer_label.setStyleSheet(
+            f"color: {title_color}; font-size: 12px; font-weight: 500; "
+            f"border: none; background: transparent;"
+        )
         layout.addWidget(footer_label)
-
-        layout.addStretch(1)
 
         # Sačuvaj reference
         card._value_label = value_label
@@ -300,7 +351,7 @@ class DashboardPage(QWidget):
         columns: List[str],
         is_payments: bool = False
     ) -> QFrame:
-        """Kreira card sekciju sa tabelom."""
+        """Kreira card sekciju sa tabelom i badge-om za broj zapisa."""
         card = QFrame()
         card.setProperty("dashboardTable", True)
 
@@ -308,11 +359,36 @@ class DashboardPage(QWidget):
         layout.setContentsMargins(20, 16, 20, 20)
         layout.setSpacing(14)
 
-        # Title
+        # Naslov red: naziv + badge sa brojem zapisa
+        title_row = QHBoxLayout()
+        title_row.setSpacing(10)
+
         title_label = QLabel(title)
-        title_label.setProperty("tableTitle", True)
-        title_label.setStyleSheet("color: #1f2937; font-size: 15px; font-weight: 700;")
-        layout.addWidget(title_label)
+        title_label.setStyleSheet(
+            "color: #1f2937; font-size: 15px; font-weight: 700; border: none;"
+        )
+
+        self._badge_payments = QLabel("") if is_payments else None
+        self._badge_month    = QLabel("") if not is_payments else None
+        badge = self._badge_payments if is_payments else self._badge_month
+        if badge:
+            badge.setStyleSheet("""
+                QLabel {
+                    background: #e5e7eb;
+                    color: #374151;
+                    font-size: 11px;
+                    font-weight: 700;
+                    padding: 2px 8px;
+                    border-radius: 10px;
+                    border: none;
+                }
+            """)
+
+        title_row.addWidget(title_label)
+        if badge:
+            title_row.addWidget(badge)
+        title_row.addStretch(1)
+        layout.addLayout(title_row)
 
         # Tabela
         table = QTableWidget()
@@ -429,6 +505,10 @@ class DashboardPage(QWidget):
             date_item.setTextAlignment(Qt.AlignCenter)  # type: ignore[arg-type]
             table.setItem(i, 4, date_item)
 
+        # Ažuriraj badge
+        if hasattr(self, "_badge_payments") and self._badge_payments:
+            self._badge_payments.setText(str(len(rows)))
+
     def _populate_month_table(
         self,
         table: QTableWidget,
@@ -473,6 +553,10 @@ class DashboardPage(QWidget):
             status_item.setBackground(QColor(bg))
             status_item.setForeground(QColor(fg))
             table.setItem(i, 6, status_item)
+
+        # Ažuriraj badge
+        if hasattr(self, "_badge_month") and self._badge_month:
+            self._badge_month.setText(str(len(rows)))
 
     def _load_dashboard_data(self) -> None:
         """Učitava sve podatke za dashboard."""

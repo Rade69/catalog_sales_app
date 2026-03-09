@@ -267,12 +267,13 @@ class OrderService:
         """
         Vraća sve narudžbe za odabranog kupca,
         sortirano od najnovije ka najstarijoj.
+        Učitava: installments → payments (potrebno za izračun preostalog iznosa).
         """
         with session_scope() as session:
             stmt = (
                 select(Order)
                 .options(
-                    selectinload(Order.installments),
+                    selectinload(Order.installments).selectinload(Installment.payments)
                 )
                 .where(Order.customer_id == customer_id)
                 .order_by(Order.order_date.desc())
@@ -280,9 +281,17 @@ class OrderService:
             orders = list(session.execute(stmt).scalars().all())
             for order in orders:
                 for inst in list(order.installments):
+                    for pay in list(inst.payments):
+                        try:
+                            session.expunge(pay)
+                        except Exception:
+                            pass
                     try:
                         session.expunge(inst)
                     except Exception:
                         pass
-                session.expunge(order)
+                try:
+                    session.expunge(order)
+                except Exception:
+                    pass
             return orders

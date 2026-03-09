@@ -78,7 +78,7 @@
 QWidget {
     background-color: #f9fafb;
     color: #1f2937;
-    font-family: "Segoe UI", "Arial", sans-serif;
+    font-family: "Segoe UI", "Liberation Sans", "DejaVu Sans", Arial, sans-serif;
     font-size: 13px;
 }
 

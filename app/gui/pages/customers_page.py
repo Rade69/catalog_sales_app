@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Optional
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QKeySequence, QAction
+from PySide6.QtGui import QColor, QFont, QKeySequence, QAction
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -243,17 +243,20 @@ class CustomersPage(QWidget):
         """)
         orders_layout = QVBoxLayout(orders_group)
 
-        self.orders_table = QTableWidget(0, 6)
+        self.orders_table = QTableWidget(0, 8)
         self.orders_table.setHorizontalHeaderLabels([
-            "Br. ugovora", "Artikal", "Cijena (KM)", "Rata", "Datum", "Status"
+            "Br. ugovora", "Artikal", "Cijena (KM)",
+            "Plaćeno", "Preostalo (KM)", "Završava", "Kasni", "Status"
         ])
         oh = self.orders_table.horizontalHeader()
-        oh.setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        oh.setSectionResizeMode(1, QHeaderView.Stretch)
-        oh.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        oh.setSectionResizeMode(3, QHeaderView.ResizeToContents)
-        oh.setSectionResizeMode(4, QHeaderView.ResizeToContents)
-        oh.setSectionResizeMode(5, QHeaderView.ResizeToContents)
+        oh.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # Br. ugovora
+        oh.setSectionResizeMode(1, QHeaderView.Stretch)            # Artikal
+        oh.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # Cijena
+        oh.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # Plaćeno
+        oh.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # Preostalo
+        oh.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # Završava
+        oh.setSectionResizeMode(6, QHeaderView.ResizeToContents)  # Kasni
+        oh.setSectionResizeMode(7, QHeaderView.ResizeToContents)  # Status
         self.orders_table.verticalHeader().setVisible(False)
         self.orders_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.orders_table.setAlternatingRowColors(True)
@@ -293,6 +296,9 @@ class CustomersPage(QWidget):
                 self.customers_table.selectRow(row)
 
     def _load_orders_for_customer(self, customer_id: int) -> None:
+        from datetime import date as date_type
+        from decimal import Decimal
+
         orders = OrderService.get_orders_for_customer(customer_id)
 
         if not orders:
@@ -302,29 +308,107 @@ class CustomersPage(QWidget):
         self.orders_table.setRowCount(0)
         self.orders_table.setRowCount(len(orders))
 
-        for row, order in enumerate(orders):
-            status = order.status.value if hasattr(order.status, "value") else str(order.status)
+        today = date_type.today()
 
-            # Broj ugovora — prikaži ID ako nema eksplicitnog broja
+        for row, order in enumerate(orders):
+            status_raw = (
+                order.status.value if hasattr(order.status, "value") else str(order.status)
+            )
+            status_bs = {
+                "active":    "Aktivna",
+                "completed": "Završena",
+                "cancelled": "Otkazana",
+            }.get(status_raw, status_raw)
+
+            # --- Izračuni iz rata i uplata ---
+            installments = order.installments or []
+            total_inst   = len(installments)
+
+            # Broj plaćenih rata (status == paid)
+            paid_count = sum(
+                1 for i in installments
+                if (i.status.value if hasattr(i.status, "value") else str(i.status)) == "paid"
+            )
+
+            # Ukupno uplaćeno KM (suma svih payment.amount)
+            total_paid = sum(
+                (
+                    sum(p.amount for p in i.payments)
+                    for i in installments
+                ),
+                Decimal("0.00"),
+            )
+            preostalo = max(Decimal("0.00"), order.total_price_snapshot - total_paid)
+
+            # Datum posljednje rate (završetak otplate)
+            last_due = max(
+                (i.due_date for i in installments), default=None
+            )
+
+            # Kasni: postoji li rata koja je overdue (rok prošao, nije plaćena)
+            kasni = any(
+                (i.status.value if hasattr(i.status, "value") else str(i.status)) == "overdue"
+                for i in installments
+            )
+
+            # --- Broj ugovora ---
             contract = order.contract_number or f"#{order.id}"
 
-            values = [
-                contract,
-                order.product_name_snapshot,
-                f"{order.total_price_snapshot:.2f}",
-                f"{order.installments_count}x",
-                order.order_date.strftime("%d.%m.%Y"),
-                _ORDER_STATUS_LABEL.get(status, status),
+            # --- Popunjavanje ćelija ---
+            # Kolone: 0=Br.ugov, 1=Artikal, 2=Cijena, 3=Plaćeno, 4=Preostalo, 5=Završava, 6=Kasni, 7=Status
+            row_data = [
+                (contract,                                       Qt.AlignCenter),
+                (order.product_name_snapshot,                    Qt.AlignLeft),
+                (f"{order.total_price_snapshot:.2f} KM",        Qt.AlignRight),
+                (f"{paid_count} / {total_inst}",                 Qt.AlignCenter),
+                (f"{preostalo:.2f} KM",                          Qt.AlignRight),
+                (last_due.strftime("%d.%m.%Y") if last_due else "—", Qt.AlignCenter),
+                ("⚠" if kasni else "—",                          Qt.AlignCenter),
+                (status_bs,                                      Qt.AlignCenter),
             ]
 
-            for col, val in enumerate(values):
+            for col, (val, align) in enumerate(row_data):
                 item = QTableWidgetItem(val)
                 item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-                if col in (2, 3):
-                    item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-                if col == 5:
-                    color = _ORDER_STATUS_COLOR.get(status, "#374151")
+                item.setTextAlignment(align | Qt.AlignVCenter)
+
+                # Br. ugovora — plava ako je pravi broj (ne #ID)
+                if col == 0 and order.contract_number:
+                    item.setForeground(QColor("#1d4ed8"))
+                    font = QFont()
+                    font.setBold(True)
+                    item.setFont(font)
+
+                # Plaćeno — zelena kad je sve plaćeno
+                if col == 3 and paid_count == total_inst and total_inst > 0:
+                    item.setForeground(QColor("#059669"))
+                    font = QFont()
+                    font.setBold(True)
+                    item.setFont(font)
+
+                # Preostalo — zelena ako 0, narandžasta ako ima duga
+                if col == 4:
+                    if preostalo == Decimal("0.00"):
+                        item.setForeground(QColor("#059669"))
+                    else:
+                        item.setForeground(QColor("#d97706"))
+
+                # Kasni — crvena ⚠
+                if col == 6 and kasni:
+                    item.setForeground(QColor("#dc2626"))
+                    font = QFont()
+                    font.setBold(True)
+                    item.setFont(font)
+
+                # Status boja
+                if col == 7:
+                    color = {
+                        "Aktivna":  "#059669",
+                        "Završena": "#6b7280",
+                        "Otkazana": "#dc2626",
+                    }.get(status_bs, "#374151")
                     item.setForeground(QColor(color))
+
                 self.orders_table.setItem(row, col, item)
 
         self.orders_table.resizeColumnsToContents()

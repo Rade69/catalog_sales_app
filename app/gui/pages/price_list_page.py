@@ -106,7 +106,7 @@ class PriceListPage(QWidget):
 
         browse_btn = QPushButton("Odaberi...")
         browse_btn.setProperty("secondary", True)
-        browse_btn.setFixedWidth(90)
+        browse_btn.setFixedWidth(110)
         browse_btn.clicked.connect(self._browse_excel)
         layout.addWidget(browse_btn)
 

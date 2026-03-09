@@ -66,9 +66,14 @@ def style_table(table: QTableWidget) -> None:
         }
         QTableWidget::item {
             padding: 8px;
+            color: #1f2937;
+            background-color: transparent;
+        }
+        QTableWidget::item:alternate {
+            background-color: #f9fafb;
         }
         QTableWidget::item:hover {
-            background-color: #f9fafb;
+            background-color: #f3f4f6;
         }
         QTableWidget::item:selected {
             background-color: #dbeafe;

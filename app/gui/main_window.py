@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QSizePolicy,
     QStackedWidget,
     QStatusBar,
     QVBoxLayout,
@@ -36,6 +37,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Kataloška prodaja")
         self.resize(1440, 900)
+        self.setMinimumSize(800, 500)  # spriječava sizeHint od strana da blokira maximize
         self.setStyleSheet(APP_STYLESHEET)
 
         root = QWidget()
@@ -76,14 +78,14 @@ class MainWindow(QMainWindow):
             ("Kontrolna ploča", DashboardPage()),
             ("Kupci", CustomersPage()),
             ("Narudžbe", OrdersPage()),
-            ("Kampanje", CampaignsPage()),
+            ("Pogodnosti", CampaignsPage()),
             ("Cjenovnik", PriceListPage()),
             ("Uplate", PaymentsPage()),
             ("Izvještaji", ReportsPage()),
             ("Postavke", self._create_settings_page()),
         ]
         self.page_names = [
-            "Kontrolna ploča", "Kupci", "Narudžbe", "Kampanje", "Cjenovnik",
+            "Kontrolna ploča", "Kupci", "Narudžbe", "Pogodnosti", "Cjenovnik",
             "Uplate", "Izvještaji", "Postavke"
         ]
         self.nav_buttons = []
@@ -278,6 +280,7 @@ class MainWindow(QMainWindow):
 
     def _build_content(self) -> QWidget:
         wrapper = QWidget()
+        wrapper.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         layout = QVBoxLayout(wrapper)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(16)
@@ -301,6 +304,7 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(topbar)
         self.stack.setObjectName("ContentArea")
+        self.stack.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         layout.addWidget(self.stack, 1)
         return wrapper
 
@@ -311,7 +315,7 @@ class MainWindow(QMainWindow):
             "Kontrolna ploča": "Pregled ključnih pokazatelja poslovanja.",
             "Kupci": "Baza kupaca, pretraga i unos u SQLite bazu.",
             "Narudžbe": "Kupovina sa snapshot cijenom i automatskim ratama.",
-            "Kampanje": "Mjesečni katalog i import cijena iz Excel fajla.",
+            "Pogodnosti": "Mjesečni katalog i import cijena iz Excel fajla.",
             "Cjenovnik": "Pregled i import cjenovnika iz Excel fajla.",
             "Uplate": "Evidencija svih uplata, uključujući djelimične uplate.",
             "Izvještaji": "Miesečni iznos uplaćenih sredstava i Excel eksport.",

@@ -83,15 +83,50 @@ class PaymentsPage(QWidget):
         # Padajući meni za kupce
         self.customer_combo = QComboBox()
         self.customer_combo.setPlaceholderText("Svi kupci")
-        self.customer_combo.setMinimumWidth(200)
-        self.customer_combo.setMaximumWidth(250)
+        self.customer_combo.setFixedSize(160, 34)
+        self.customer_combo.setStyleSheet("""
+            QComboBox {
+                border: 1px solid #d1d5db;
+                border-radius: 8px;
+                padding: 0px 10px;
+                background: white;
+                color: #374151;
+                font-weight: 600;
+                font-size: 12px;
+            }
+            QComboBox:hover { background: #f3f4f6; }
+            QComboBox::drop-down {
+                border: none;
+                width: 20px;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-top: 5px solid #6b7280;
+                width: 0;
+                height: 0;
+                margin-right: 6px;
+            }
+        """)
         self.customer_combo.currentIndexChanged.connect(self._load_installments)
         layout.addWidget(self.customer_combo)
 
         # Search
         self.search_edit = QLineEdit()
-        self.search_edit.setPlaceholderText("🔍 Pretraži po kupcu, artiklu ili br. ugovora...")
-        self.search_edit.setMaximumWidth(250)
+        self.search_edit.setPlaceholderText("🔍 Pretraži po kupcu...")
+        self.search_edit.setFixedSize(180, 34)
+        self.search_edit.setStyleSheet("""
+            QLineEdit {
+                border: 1px solid #d1d5db;
+                border-radius: 8px;
+                padding: 0px 10px;
+                background: white;
+                color: #374151;
+                font-size: 12px;
+            }
+            QLineEdit:focus { border-color: #2563eb; }
+        """)
         self.search_edit.textChanged.connect(self._load_installments)
         layout.addWidget(self.search_edit)
 
@@ -102,47 +137,52 @@ class PaymentsPage(QWidget):
         filter_label.setStyleSheet("color: #6b7280; font-size: 12px;")
         layout.addWidget(filter_label)
 
+        FILTER_BTN_STYLE = """
+            QPushButton {
+                border: 1px solid #d1d5db;
+                border-radius: 8px;
+                padding: 0px 10px;
+                background: white;
+                color: #374151;
+                font-weight: 600;
+                font-size: 12px;
+            }
+            QPushButton:checked {
+                background: #2563eb;
+                color: white;
+                border-color: #2563eb;
+            }
+            QPushButton:hover:!checked { background: #f3f4f6; }
+        """
+
         self.filter_buttons: dict[str, QPushButton] = {}
+        self._filter_icons: dict[str, str] = {
+            "all":     "refresh",
+            "overdue": "alert",
+            "month":   "calendar",
+            "unpaid":  "refresh",
+        }
         filters = [
-            ("all",      "Sve rate"),
-            ("overdue",  "Kasne"),
-            ("month",    "Ovaj mjesec"),
-            ("unpaid",   "Neplaćene"),
+            ("all",     "Sve rate"),
+            ("overdue", "Kasne"),
+            ("month",   "Ovaj mjesec"),
+            ("unpaid",  "Neplaćene"),
         ]
         for key, label in filters:
             btn = QPushButton(label)
             btn.setCheckable(True)
             btn.setProperty("secondary", True)
-            btn.setStyleSheet("""
-                QPushButton {
-                    border: 1px solid #d1d5db;
-                    border-radius: 8px;
-                    padding: 6px 12px;
-                    background: white;
-                    color: #374151;
-                    font-weight: 600;
-                    font-size: 12px;
-                }
-                QPushButton:checked {
-                    background: #2563eb;
-                    color: white;
-                    border-color: #2563eb;
-                }
-                QPushButton:hover:!checked { background: #f3f4f6; }
-            """)
+            btn.setFixedSize(130, 34)
+            btn.setStyleSheet(FILTER_BTN_STYLE)
             btn.clicked.connect(lambda checked, k=key: self._set_filter(k))
-            # Dodaj ikonicu
-            if key == "overdue":
-                icon_pixmap = get_pixmap("alert", "#374151", 16)
-            elif key == "month":
-                icon_pixmap = get_pixmap("calendar", "#374151", 16)
-            else:
-                icon_pixmap = get_pixmap("refresh", "#374151", 16)
-            btn.setIcon(icon_pixmap)
+            btn.setIcon(get_pixmap(self._filter_icons[key], "#374151", 16))
             layout.addWidget(btn)
             self.filter_buttons[key] = btn
 
         self.filter_buttons["overdue"].setChecked(True)
+        self.filter_buttons["overdue"].setIcon(
+            get_pixmap(self._filter_icons["overdue"], "white", 16)
+        )
         self._active_filter = "overdue"
 
         layout.addStretch(1)
@@ -513,7 +553,10 @@ class PaymentsPage(QWidget):
     def _set_filter(self, key: str) -> None:
         """Postavlja aktivni filter i učitava rate."""
         for k, btn in self.filter_buttons.items():
-            btn.setChecked(k == key)
+            checked = (k == key)
+            btn.setChecked(checked)
+            color = "white" if checked else "#374151"
+            btn.setIcon(get_pixmap(self._filter_icons[k], color, 16))
         self._active_filter = key
         # Eksplicitno čitaj customer_id prije učitavanja
         self._selected_customer_id = self.customer_combo.currentData()
