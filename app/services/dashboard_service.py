@@ -44,6 +44,17 @@ class InstallmentRow:
     status: str
 
 
+@dataclass
+class PaymentRow:
+    """Red za tabelu uplata."""
+    customer_name: str
+    product_name: str
+    installment_number: int
+    total_installments: int
+    amount: Decimal
+    payment_date: date
+
+
 # -----------------------------------------------------------------------------
 # Dashboard Service
 # -----------------------------------------------------------------------------
@@ -303,6 +314,36 @@ class DashboardService:
                     status=status
                 ))
 
+            return rows
+
+    # ---------------------------------------------------------------------
+    # Tabela: Nedavne uplate
+    # ---------------------------------------------------------------------
+
+    @staticmethod
+    def get_recent_payments(limit: int = 25) -> List[PaymentRow]:
+        """Vraća nedavne uplate, sortirane od najnovije."""
+        with session_scope() as session:
+            stmt = (
+                select(Payment, Installment, Order, Customer)
+                .join(Installment, Payment.installment_id == Installment.id)
+                .join(Order, Installment.order_id == Order.id)
+                .join(Customer, Order.customer_id == Customer.id)
+                .order_by(Payment.payment_date.desc(), Payment.id.desc())
+                .limit(limit)
+            )
+
+            results = session.execute(stmt).all()
+            rows: List[PaymentRow] = []
+            for row in results:
+                rows.append(PaymentRow(
+                    customer_name=row.Customer.full_name if row.Customer else "N/A",
+                    product_name=row.Order.product_name_snapshot,
+                    installment_number=row.Installment.installment_number,
+                    total_installments=row.Order.installments_count,
+                    amount=row.Payment.amount,
+                    payment_date=row.Payment.payment_date,
+                ))
             return rows
 
     # ---------------------------------------------------------------------

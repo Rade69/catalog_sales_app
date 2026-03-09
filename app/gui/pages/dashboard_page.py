@@ -24,6 +24,7 @@ from app.services.dashboard_service import (
     DashboardService,
     InstallmentRow,
     KpiData,
+    PaymentRow,
 )
 
 
@@ -275,10 +276,10 @@ class DashboardPage(QWidget):
         layout.setHorizontalSpacing(20)
         layout.setVerticalSpacing(0)
 
-        # Tabela 1: Uplate po mjesecima
+        # Tabela 1: Nedavne uplate
         payments_table_card = self._create_table_card(
-            title="Uplate po mjesecima",
-            columns=["Kupac", "Proizvod", "Rata", "Plaćeno", "Preostalo"],
+            title="Nedavne uplate",
+            columns=["Kupac", "Artikal", "Rata", "Iznos (KM)", "Datum"],
             is_payments=True
         )
         layout.addWidget(payments_table_card, 0, 0)
@@ -324,10 +325,10 @@ class DashboardPage(QWidget):
         header.setSectionResizeMode(0, QHeaderView.Stretch)
         header.setSectionResizeMode(1, QHeaderView.Stretch)
         if is_payments:
-            # Kupac | Proizvod | Rata | Plaćeno | Preostalo
+            # Kupac | Artikal | Rata | Iznos (KM) | Datum
             table.setColumnWidth(2, 70)
             table.setColumnWidth(3, 95)
-            table.setColumnWidth(4, 95)
+            table.setColumnWidth(4, 100)
             for i in range(2, len(columns)):
                 header.setSectionResizeMode(i, QHeaderView.Fixed)
         else:
@@ -402,9 +403,9 @@ class DashboardPage(QWidget):
     def _populate_payments_table(
         self,
         table: QTableWidget,
-        rows: List[InstallmentRow]
+        rows: List[PaymentRow]
     ) -> None:
-        """Popunjava tabelu sa uplatama po mjesecima."""
+        """Popunjava tabelu sa nedavnim uplatama."""
         if not rows:
             show_empty_state(table, "Nema uplata")
             return
@@ -416,14 +417,17 @@ class DashboardPage(QWidget):
             table.setItem(i, 1, QTableWidgetItem(row.product_name))
 
             rata_text = f"{row.installment_number}/{row.total_installments}"
-            table.setItem(i, 2, QTableWidgetItem(rata_text))
+            rata_item = QTableWidgetItem(rata_text)
+            rata_item.setTextAlignment(Qt.AlignCenter)  # type: ignore[arg-type]
+            table.setItem(i, 2, rata_item)
 
-            table.setItem(i, 3, create_numeric_item(row.paid_amount, " KM"))
+            amount_item = create_numeric_item(row.amount, " KM")
+            amount_item.setForeground(QColor("#059669"))
+            table.setItem(i, 3, amount_item)
 
-            remaining_item = create_numeric_item(row.remaining_amount, " KM")
-            if row.remaining_amount > 0:
-                remaining_item.setForeground(QColor("#dc2626"))
-            table.setItem(i, 4, remaining_item)
+            date_item = QTableWidgetItem(row.payment_date.strftime("%d.%m.%Y."))
+            date_item.setTextAlignment(Qt.AlignCenter)  # type: ignore[arg-type]
+            table.setItem(i, 4, date_item)
 
     def _populate_month_table(
         self,
@@ -487,8 +491,8 @@ class DashboardPage(QWidget):
 
     def _load_tables(self) -> None:
         """Učitava podatke za tabele."""
-        # Tabela 1: Uplate po mjesecima (koristimo overdue kao primjer)
-        payments = self.dashboard_service.get_overdue_installments(limit=8)
+        # Tabela 1: Nedavne uplate
+        payments = self.dashboard_service.get_recent_payments(limit=8)
         if hasattr(self, "payments_table"):
             self._populate_payments_table(self.payments_table, payments)
 
