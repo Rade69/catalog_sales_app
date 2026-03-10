@@ -97,7 +97,7 @@ class DashboardPage(QWidget):
         )
         date_label = QLabel(date_str)
         date_label.setStyleSheet(
-            "font-size: 13px; color: #9ca3af; border: none;"
+            "font-size: 15px; color: #4b5563; font-weight: 600;"
         )
 
         layout.addWidget(title)
@@ -144,7 +144,7 @@ class DashboardPage(QWidget):
 
         # Kartica 4: Naplaćeno Ovaj Mjesec (zelena)
         kpi4 = self._create_kpi_card(
-            title="NAPLAĆENO OVAJ MJES.", value="—", footer="Tekući mjesec",
+            title="NAPLAĆENO OVAJ MJESEC", value="—", footer="Tekući mjesec",
             color="#16a34a", card_type="naplaceno", icon="payments"
         )
         layout.addWidget(kpi4, 0, 3)
@@ -190,16 +190,16 @@ class DashboardPage(QWidget):
 
         # Naslov sa ikonom
         title_row = QHBoxLayout()
-        title_row.setSpacing(6)
+        title_row.setSpacing(8)
         if icon:
             icon_lbl = QLabel()
-            icon_lbl.setFixedSize(20, 20)
-            icon_lbl.setPixmap(get_pixmap(icon, color, 20))
+            icon_lbl.setFixedSize(24, 24)
+            icon_lbl.setPixmap(get_pixmap(icon, color, 24))
             icon_lbl.setStyleSheet("border: none; background: transparent;")
             title_row.addWidget(icon_lbl)
         title_lbl = QLabel(title)
         title_lbl.setStyleSheet(
-            "color: #6b7280; font-size: 11px; font-weight: 700; "
+            "color: #6b7280; font-size: 14px; font-weight: 700; "
             "letter-spacing: 0.05em; border: none; background: transparent;"
         )
         title_row.addWidget(title_lbl)
@@ -217,7 +217,7 @@ class DashboardPage(QWidget):
         # Footer
         footer_label = QLabel(footer)
         footer_label.setStyleSheet(
-            f"color: {color}; font-size: 12px; font-weight: 600; "
+            f"color: {color}; font-size: 14px; font-weight: 600; "
             f"border: none; background: transparent;"
         )
         layout.addWidget(footer_label)
@@ -292,16 +292,16 @@ class DashboardPage(QWidget):
 
         # Naslov sa ikonom
         title_row = QHBoxLayout()
-        title_row.setSpacing(6)
+        title_row.setSpacing(8)
         title_row.setContentsMargins(0, 0, 0, 0)
         icon_lbl = QLabel()
-        icon_lbl.setFixedSize(16, 16)
-        icon_lbl.setPixmap(get_pixmap(icon_name, title_color, 16))
+        icon_lbl.setFixedSize(20, 20)
+        icon_lbl.setPixmap(get_pixmap(icon_name, title_color, 20))
         icon_lbl.setStyleSheet("border: none; background: transparent;")
         title_row.addWidget(icon_lbl)
         title_lbl = QLabel(title)
         title_lbl.setStyleSheet(
-            f"color: {title_color}; font-size: 11px; font-weight: 700; "
+            f"color: {title_color}; font-size: 14px; font-weight: 700; "
             f"letter-spacing: 0.05em; border: none; background: transparent;"
         )
         title_row.addWidget(title_lbl)
@@ -319,7 +319,7 @@ class DashboardPage(QWidget):
         # Footer
         footer_label = QLabel(footer)
         footer_label.setStyleSheet(
-            f"color: {title_color}; font-size: 12px; font-weight: 500; "
+            f"color: {title_color}; font-size: 14px; font-weight: 500; "
             f"border: none; background: transparent;"
         )
         layout.addWidget(footer_label)
@@ -351,7 +351,7 @@ class DashboardPage(QWidget):
         # Tabela 2: Rate ovog mjeseca
         month_table_card = self._create_table_card(
             title="Rate ovog mjeseca",
-            columns=["Kupac", "Proizvod", "Rata", "Plaćeno", "Preostalo", "Dospijeće", "Status"],
+            columns=["Kupac", "Proizvod", "Rata", "Plaćeno", "Preostalo", "Dospijeće"],
             is_payments=False
         )
         layout.addWidget(month_table_card, 0, 1)
@@ -411,24 +411,12 @@ class DashboardPage(QWidget):
         table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
         header = table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.Stretch)
-        header.setSectionResizeMode(1, QHeaderView.Stretch)
-        if is_payments:
-            # Kupac | Artikal | Rata | Iznos (KM) | Datum
-            table.setColumnWidth(2, 70)
-            table.setColumnWidth(3, 95)
-            table.setColumnWidth(4, 100)
-            for i in range(2, len(columns)):
-                header.setSectionResizeMode(i, QHeaderView.Fixed)
-        else:
-            # Kupac | Proizvod | Rata | Plaćeno | Preostalo | Dospijeće | Status
-            table.setColumnWidth(2, 70)
-            table.setColumnWidth(3, 95)
-            table.setColumnWidth(4, 95)
-            table.setColumnWidth(5, 100)
-            table.setColumnWidth(6, 90)
-            for i in range(2, len(columns)):
-                header.setSectionResizeMode(i, QHeaderView.Fixed)
+        header.setMinimumSectionSize(52)
+        for i in range(len(columns)):
+            header.setSectionResizeMode(i, QHeaderView.Stretch)
+        # Kolona "Rata" (index 2) - minimalna širina
+        header.setSectionResizeMode(2, QHeaderView.Fixed)
+        table.setColumnWidth(2, 68)
 
         # Stil tabele
         table.setStyleSheet("""
@@ -552,20 +540,6 @@ class DashboardPage(QWidget):
             due_item.setTextAlignment(Qt.AlignCenter)  # type: ignore[arg-type]
             table.setItem(i, 5, due_item)
 
-            status_map = {
-                "paid": ("PLAĆENO", "#dcfce7", "#166534"),
-                "partially_paid": ("DJELIMIČNO", "#fef3c7", "#92400e"),
-                "overdue": ("KASNI", "#fee2e2", "#991b1b"),
-                "pending": ("ČEKA", "#f3f4f6", "#6b7280"),
-            }
-            status_text, bg, fg = status_map.get(
-                row.status, ("—", "#f3f4f6", "#6b7280")
-            )
-            status_item = QTableWidgetItem(status_text)
-            status_item.setTextAlignment(Qt.AlignCenter)  # type: ignore[arg-type]
-            status_item.setBackground(QColor(bg))
-            status_item.setForeground(QColor(fg))
-            table.setItem(i, 6, status_item)
 
         # Ažuriraj badge
         if hasattr(self, "_badge_month") and self._badge_month:

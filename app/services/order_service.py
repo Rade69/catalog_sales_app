@@ -295,3 +295,18 @@ class OrderService:
                 except Exception:
                     pass
             return orders
+
+    @staticmethod
+    def update_contract_number(order_id: int, contract_number: Optional[str]) -> None:
+        """
+        Ažurira broj ugovora za narudžbu.
+        
+        Args:
+            order_id: ID narudžbe
+            contract_number: Novi broj ugovora (ili None za brisanje)
+        """
+        with session_scope() as session:
+            order = session.get(Order, order_id)
+            if order:
+                order.contract_number = contract_number
+                session.commit()

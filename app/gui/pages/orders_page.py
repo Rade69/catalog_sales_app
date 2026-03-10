@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QButtonGroup,
     QComboBox,
+    QDialog,
     QFrame,
     QHBoxLayout,
     QHeaderView,
@@ -422,7 +423,39 @@ class OrdersPage(QWidget):
         th.setSectionResizeMode(6, QHeaderView.ResizeToContents)
         th.setSectionResizeMode(7, QHeaderView.ResizeToContents)
         style_table(self.table)
-        self.table.doubleClicked.connect(self._show_order_details)
+        # Inline editovanje je onemogućeno — koristimo custom dialog za Br. ugovora
+        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table.setStyleSheet("""
+            QTableWidget {
+                background: white;
+                border: 1px solid #e5e7eb;
+                border-radius: 16px;
+                gridline-color: #eef2f7;
+                font-size: 16px;
+            }
+            QTableWidget::item {
+                padding: 8px;
+                color: #1f2937;
+                background-color: transparent;
+            }
+            QTableWidget::item:alternate {
+                background-color: #f9fafb;
+            }
+            QTableWidget::item:hover {
+                background-color: #f3f4f6;
+            }
+            QTableWidget::item:selected {
+                background-color: #dbeafe;
+                color: #1e40af;
+            }
+            QLineEdit {
+                font-size: 16px;
+                padding: 4px 8px;
+                border: 2px solid #2563eb;
+                border-radius: 4px;
+            }
+        """)
+        self.table.doubleClicked.connect(self._on_table_double_clicked)
         self.table.itemSelectionChanged.connect(self._on_order_selected)
         panel_layout.addWidget(self.table, 1)
 
@@ -441,6 +474,47 @@ class OrdersPage(QWidget):
         self.pricelist_combo.currentIndexChanged.connect(self._on_pricelist_combo_changed)
         self.price_input.textChanged.connect(self._update_preview)
         self.installments_combo.currentIndexChanged.connect(self._update_preview)
+
+    # ------------------------------------------------------------------
+    # Ažuriranje broja ugovora iz tabele
+    # ------------------------------------------------------------------
+
+    def _on_contract_number_changed(self, row: int, col: int) -> None:
+        """
+        Poziva se kada se izmijeni broj ugovora u tabeli (kolona 1).
+        Ažurira narudžbu u bazi sa novim brojem ugovora.
+        """
+        if col != 1:
+            return
+
+        item = self.table.item(row, 0)
+        if not item:
+            return
+
+        order_id = item.data(Qt.UserRole)
+        if not order_id:
+            return
+
+        new_contract = self.table.item(row, 1).text().strip() or None
+
+        try:
+            OrderService.update_contract_number(order_id, new_contract)
+            
+            # Ažuriraj boju i font ako je unesen broj
+            contract_item = self.table.item(row, 1)
+            if new_contract:
+                contract_item.setForeground(QColor("#1d4ed8"))
+                f = QFont(); f.setBold(True); contract_item.setFont(f)
+            else:
+                contract_item.setForeground(QColor("#9ca3af"))
+        except Exception as e:
+            QMessageBox.warning(self, "Greška", f"Neuspješno ažuriranje broja ugovora:\n{str(e)}")
+            # Vrati staru vrijednost
+            order = OrderService.get_order_details(order_id)
+            if order:
+                self.table.blockSignals(True)
+                self.table.item(row, 1).setText(order.contract_number or "")
+                self.table.blockSignals(False)
 
     # ------------------------------------------------------------------
     # Učitavanje podataka
@@ -646,7 +720,7 @@ class OrdersPage(QWidget):
         for row, order in enumerate(orders):
             raw      = order.status.value if hasattr(order.status, "value") else str(order.status)
             status_bs = _ORDER_STATUS_BS.get(raw, raw)
-            contract  = order.contract_number or "—"
+            contract  = order.contract_number or ""
 
             values = [
                 (str(order.id),                                            Qt.AlignCenter),
@@ -661,12 +735,18 @@ class OrdersPage(QWidget):
 
             for col, (val, align) in enumerate(values):
                 it = QTableWidgetItem(val)
-                it.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
                 it.setTextAlignment(align | Qt.AlignVCenter)
 
-                if col == 1 and order.contract_number:
-                    it.setForeground(QColor("#1d4ed8"))
-                    f = QFont(); f.setBold(True); it.setFont(f)
+                # Kolona 1 (Br. ugovora) je editabilna
+                if col == 1:
+                    it.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsEditable)
+                    if order.contract_number:
+                        it.setForeground(QColor("#1d4ed8"))
+                        f = QFont(); f.setBold(True); it.setFont(f)
+                    else:
+                        it.setForeground(QColor("#9ca3af"))
+                else:
+                    it.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
 
                 if col == 7:
                     it.setForeground(QColor(_ORDER_STATUS_COLOR.get(raw, "#374151")))
@@ -811,6 +891,85 @@ class OrdersPage(QWidget):
     # Detalji narudžbe (dvostruki klik)
     # ------------------------------------------------------------------
 
+    def _on_table_double_clicked(self, index) -> None:
+        if index.column() == 1:
+            self._edit_contract_number_dialog(index.row())
+        else:
+            self._show_order_details(index)
+
+    def _edit_contract_number_dialog(self, row: int) -> None:
+        """Otvara custom dialog za unos/izmjenu broja ugovora."""
+        id_item = self.table.item(row, 0)
+        if not id_item:
+            return
+        order_id = id_item.data(Qt.UserRole)
+        contract_item = self.table.item(row, 1)
+        current_value = contract_item.text() if contract_item else ""
+
+        _QFont = QFont
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Broj ugovora")
+        dialog.resize(500, 200)
+
+        layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(28, 24, 28, 24)
+        layout.setSpacing(14)
+
+        lbl = QLabel("Unesi broj ugovora:")
+        _lf = _QFont(); _lf.setPointSize(13); lbl.setFont(_lf)
+        layout.addWidget(lbl)
+
+        field = QLineEdit(current_value)
+        _ff = _QFont(); _ff.setPointSize(14); field.setFont(_ff)
+        field.setMinimumHeight(46)
+        field.setPlaceholderText("npr. UG-2026-001")
+        field.setStyleSheet(
+            "QLineEdit { border: 2px solid #2563eb; border-radius: 8px; padding: 4px 12px; }"
+        )
+        layout.addWidget(field)
+
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(10)
+        ok_btn = QPushButton("Sačuvaj")
+        clear_btn = QPushButton("Obriši")
+        cancel_btn = QPushButton("Otkaži")
+        for btn, bg, hover in [
+            (ok_btn,     "#2563eb", "#1d4ed8"),
+            (clear_btn,  "#dc2626", "#b91c1c"),
+            (cancel_btn, "#6b7280", "#4b5563"),
+        ]:
+            btn.setMinimumHeight(42)
+            _bf = _QFont(); _bf.setPointSize(12); btn.setFont(_bf)
+            btn.setStyleSheet(
+                f"QPushButton {{ background:{bg}; color:white; border-radius:8px; padding:0 24px; }}"
+                f"QPushButton:hover {{ background:{hover}; }}"
+            )
+        ok_btn.clicked.connect(dialog.accept)
+        cancel_btn.clicked.connect(dialog.reject)
+        clear_btn.clicked.connect(lambda: (field.clear(), dialog.accept()))
+        btn_row.addWidget(ok_btn)
+        btn_row.addWidget(clear_btn)
+        btn_row.addWidget(cancel_btn)
+        layout.addLayout(btn_row)
+
+        field.setFocus()
+        if dialog.exec() != QDialog.Accepted:
+            return
+
+        new_contract = field.text().strip() or None
+        try:
+            OrderService.update_contract_number(order_id, new_contract)
+            if contract_item:
+                contract_item.setText(new_contract or "")
+                if new_contract:
+                    contract_item.setForeground(QColor("#1d4ed8"))
+                    f = QFont(); f.setBold(True); contract_item.setFont(f)
+                else:
+                    contract_item.setForeground(QColor("#9ca3af"))
+                    contract_item.setFont(QFont())
+        except Exception as e:
+            QMessageBox.warning(self, "Greška", f"Neuspješno ažuriranje:\n{str(e)}")
+
     def _show_order_details(self, index) -> None:
         item = self.table.item(index.row(), 0)
         if not item:
@@ -819,43 +978,132 @@ class OrdersPage(QWidget):
         if not order:
             return
 
-        raw       = order.status.value if hasattr(order.status, "value") else str(order.status)
+        raw = order.status.value if hasattr(order.status, "value") else str(order.status)
         status_bs = _ORDER_STATUS_BS.get(raw, raw)
-        contract_row = (
-            f"<tr><td><b>Br. ugovora:</b></td><td>{order.contract_number}</td></tr>"
-            if order.contract_number else ""
-        )
-        inst_rows = "".join(
-            f"<tr>"
-            f"<td style='text-align:center'>{i.installment_number}</td>"
-            f"<td style='text-align:right'>{i.amount:.2f} KM</td>"
-            f"<td style='text-align:center'>{i.due_date.strftime('%d.%m.%Y')}</td>"
-            f"<td style='text-align:center'>{_INST_STATUS_BS.get(i.status.value if hasattr(i.status,'value') else str(i.status), str(i.status))}</td>"
-            f"</tr>"
-            for i in order.installments
-        )
-        details = (
-            f"<h3>Narudžba #{order.id}</h3><table cellpadding='4'>"
-            f"<tr><td><b>Kupac:</b></td><td>{order.customer.full_name if order.customer else 'N/A'}</td></tr>"
-            f"<tr><td><b>Artikal:</b></td><td>{order.product_name_snapshot}</td></tr>"
-            f"{contract_row}"
-            f"<tr><td><b>Cijena:</b></td><td>{order.total_price_snapshot:.2f} KM</td></tr>"
-            f"<tr><td><b>Rate:</b></td><td>{order.installments_count}</td></tr>"
-            f"<tr><td><b>Datum:</b></td><td>{order.order_date.strftime('%d.%m.%Y')}</td></tr>"
-            f"<tr><td><b>Status:</b></td><td>{status_bs}</td></tr>"
-            f"</table>"
-            f"<h4>Pregled rata:</h4>"
-            f"<table border='1' cellpadding='4'>"
-            f"<tr><th>Rata</th><th>Iznos</th><th>Dospijeće</th><th>Status</th></tr>"
-            f"{inst_rows}"
-            f"</table>"
-        )
+        contract_info = f"<b>Br. ugovora:</b> {order.contract_number}<br>" if order.contract_number else ""
 
-        msg = QMessageBox(self)
-        msg.setWindowTitle(f"Detalji narudžbe #{order.id}")
-        msg.setTextFormat(Qt.RichText)
-        msg.setText(details)
-        msg.exec()
+        # Kreiraj custom dijalog
+        dialog = QDialog(self)
+        dialog.setWindowTitle(f"Detalji narudžbe #{order.id}")
+        dialog.resize(1000, 700)
+        dialog.setMinimumWidth(900)
+        dialog.setMinimumHeight(600)
+
+        # Glavni layout
+        main_layout = QVBoxLayout(dialog)
+        main_layout.setContentsMargins(30, 20, 30, 20)
+        main_layout.setSpacing(16)
+
+        # Naslov
+        _QFont = QFont
+        title = QLabel(f"Narudžba #{order.id}")
+        title.setStyleSheet("font-weight: 800; color: #111827;")
+        _tf = _QFont(); _tf.setPointSize(20); title.setFont(_tf)
+        main_layout.addWidget(title)
+        
+        # Info sekcija
+        info_frame = QFrame()
+        info_frame.setStyleSheet("background: #f9fafb; border-radius: 10px; padding: 16px;")
+        info_layout = QVBoxLayout(info_frame)
+        info_layout.setSpacing(10)
+        
+        info_text = QLabel(
+            f"<b>Kupac:</b> {order.customer.full_name if order.customer else 'N/A'}<br>"
+            f"<b>Artikal:</b> {order.product_name_snapshot}<br>"
+            f"{contract_info}"
+            f"<b>Cijena:</b> {order.total_price_snapshot:.2f} KM<br>"
+            f"<b>Broj rata:</b> {order.installments_count}<br>"
+            f"<b>Datum:</b> {order.order_date.strftime('%d.%m.%Y')}<br>"
+            f"<b>Status:</b> <span style='color: {_ORDER_STATUS_COLOR.get(raw, "#374151")}; font-weight: 700;'>{status_bs}</span>"
+        )
+        info_text.setStyleSheet("color: #1f2937;")
+        _inf = _QFont(); _inf.setPointSize(13); info_text.setFont(_inf)
+        info_text.setWordWrap(True)
+        info_layout.addWidget(info_text)
+        main_layout.addWidget(info_frame)
+        
+        # Tabela rata
+        rates_title = QLabel("Pregled rata:")
+        rates_title.setStyleSheet("font-weight: 700; color: #111827; margin-top: 10px;")
+        _rt = _QFont(); _rt.setPointSize(15); rates_title.setFont(_rt)
+        main_layout.addWidget(rates_title)
+        
+        rates_table = QTableWidget()
+        rates_table.setColumnCount(4)
+        rates_table.setHorizontalHeaderLabels(["Rata", "Iznos (KM)", "Dospijeće", "Status"])
+        rates_table.setRowCount(len(order.installments))
+        rates_table.verticalHeader().setVisible(False)
+        rates_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        rates_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        rates_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        rates_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
+        rates_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        rates_table.setSelectionBehavior(QTableWidget.SelectRows)
+        rates_table.setAlternatingRowColors(True)
+        rates_table.setStyleSheet("""
+            QTableWidget {
+                font-size: 18px;
+                background: white;
+                border: 1px solid #e5e7eb;
+                border-radius: 10px;
+            }
+            QHeaderView::section {
+                background: #e5e7eb;
+                font-size: 16px;
+                font-weight: 700;
+                padding: 12px;
+                border: none;
+            }
+            QTableWidget::item {
+                padding: 10px;
+            }
+        """)
+        
+        for i, inst in enumerate(order.installments):
+            inst_status = _INST_STATUS_BS.get(inst.status.value if hasattr(inst.status, "value") else str(inst.status), str(inst.status))
+            
+            # Rata broj
+            rata_item = QTableWidgetItem(str(inst.installment_number))
+            rata_item.setTextAlignment(Qt.AlignCenter)
+            rates_table.setItem(i, 0, rata_item)
+            
+            # Iznos
+            iznos_item = QTableWidgetItem(f"{inst.amount:.2f}")
+            iznos_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            rates_table.setItem(i, 1, iznos_item)
+            
+            # Dospijeće
+            due_item = QTableWidgetItem(inst.due_date.strftime("%d.%m.%Y"))
+            due_item.setTextAlignment(Qt.AlignCenter)
+            rates_table.setItem(i, 2, due_item)
+            
+            # Status
+            status_item = QTableWidgetItem(inst_status)
+            status_item.setTextAlignment(Qt.AlignCenter)
+            rates_table.setItem(i, 3, status_item)
+        
+        main_layout.addWidget(rates_table)
+        
+        # Dugme Zatvori
+        close_btn = QPushButton("Zatvori")
+        close_btn.setStyleSheet("""
+            QPushButton {
+                background: #2563eb;
+                color: white;
+                font-size: 18px;
+                font-weight: 700;
+                padding: 14px 40px;
+                border-radius: 10px;
+            }
+            QPushButton:hover {
+                background: #1d4ed8;
+            }
+        """)
+        close_btn.setMinimumHeight(50)
+        close_btn.clicked.connect(dialog.accept)
+        main_layout.addWidget(close_btn)
+        
+        dialog.exec()
 
     # ------------------------------------------------------------------
     # Pomoćne metode

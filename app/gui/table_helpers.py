@@ -48,13 +48,13 @@ def style_table(table: QTableWidget) -> None:
             background-color: #f3f4f6;
             color: #111827;
             font-weight: 700;
-            font-size: 13px;
+            font-size: 14px;
             padding: 12px 8px;
             border: none;
             border-bottom: 2px solid #e5e7eb;
         }
     """)
-    
+
     # Hover efekat (koristi stylesheet za cijelu tabelu)
     table.setStyleSheet("""
         QTableWidget {
@@ -62,7 +62,7 @@ def style_table(table: QTableWidget) -> None:
             border: 1px solid #e5e7eb;
             border-radius: 16px;
             gridline-color: #eef2f7;
-            font-size: 13px;
+            font-size: 16px;
         }
         QTableWidget::item {
             padding: 8px;

@@ -370,7 +370,7 @@ QTableWidget {
     border: 1px solid #e5e7eb;
     border-radius: 12px;
     gridline-color: #f3f4f6;
-    font-size: 13px;
+    font-size: 16px;
     selection-background-color: #dbeafe;
     selection-color: #1e40af;
 }
@@ -938,10 +938,11 @@ QListWidget {
     border: 1px solid #e5e7eb;
     border-radius: 12px;
     outline: none;
+    font-size: 16px;
 }
 
 QListWidget::item {
-    padding: 10px 12px;
+    padding: 12px 14px;
     border-bottom: 1px solid #f3f4f6;
 }
 
