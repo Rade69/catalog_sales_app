@@ -99,6 +99,7 @@ get_current_month_installments()  # tabela rata ovog mjeseca
 - **0.21** - OrdersPage: dodano polje "Broj ugovora" (contract_number) u formu i tabelu
 - **0.22** - Pretraga po broju ugovora u Uplatama i Ratama (PaymentsPage, InstallmentsPage)
 - **0.23** - OrdersPage: dva taba (Nova/Pregled), cjenovnik/pogodnosti izvor; Dashboard: header sa datumom, KPI sa ikonicama; CustomersPage: 8 kolona u tabeli (Plaćeno, Preostalo, Završava, Kasni)
+- **0.24** - Povećanje fontova za bolju čitljivost: globalno 13px→15px, veći padding u tabelama i inputima, veće KPI vrijednosti (36px)
 
 ### SVG Ikonice (icons.py)
 **19 ikona:** dashboard, customers, orders, campaigns, payments, reports, settings, backup, pricelist, import, refresh, delete, save, cart, search, credit-card, chart, calendar, alert
