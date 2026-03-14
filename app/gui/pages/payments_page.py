@@ -208,21 +208,21 @@ class PaymentsPage(QWidget):
 
         # Tabela rata
         self.installments_table = QTableWidget()
-        self.installments_table.setColumnCount(7)
+        self.installments_table.setColumnCount(8)
         self.installments_table.setHorizontalHeaderLabels([
-            "Kupac", "Artikal", "Rata", "Dospijeće", "Iznos", "Plaćeno", "Status"
+            "Kupac", "Artikal", "Vrijednost", "Plaćeno", "Preostalo",
+            "Rata", "Dospijeće", "Status"
         ])
 
         h = self.installments_table.horizontalHeader()
         h.setSectionResizeMode(0, QHeaderView.Stretch)        # Kupac
         h.setSectionResizeMode(1, QHeaderView.Stretch)        # Artikal
-        h.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # Rata
-        h.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # Dospijeće
-        h.setSectionResizeMode(4, QHeaderView.Fixed)          # Iznos
-        h.setSectionResizeMode(5, QHeaderView.Fixed)          # Plaćeno
-        h.setSectionResizeMode(6, QHeaderView.ResizeToContents)  # Status
-        self.installments_table.setColumnWidth(4, 100)
-        self.installments_table.setColumnWidth(5, 100)
+        h.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # Vrijednost
+        h.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # Plaćeno
+        h.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # Preostalo
+        h.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # Rata
+        h.setSectionResizeMode(6, QHeaderView.ResizeToContents)  # Dospijeće
+        h.setSectionResizeMode(7, QHeaderView.ResizeToContents)  # Status
 
         self.installments_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.installments_table.setSelectionMode(QAbstractItemView.SingleSelection)
@@ -260,32 +260,16 @@ class PaymentsPage(QWidget):
         self.info_artikal = QLabel("")
         self.info_artikal.setStyleSheet("color: #6b7280; font-size: 13px;")
 
-        # Iznosi u jednom redu
+        # Iznos rate (pojednostavljeno - samo iznos)
         amounts_row = QHBoxLayout()
-        self.info_iznos_lbl = QLabel("Rata:")
+        self.info_iznos_lbl = QLabel("Iznos rate:")
         self.info_iznos_lbl.setStyleSheet("color: #6b7280; font-size: 12px;")
         self.info_iznos_val = QLabel("")
         self.info_iznos_val.setStyleSheet(
-            "font-size: 14px; font-weight: 700; color: #111827;"
-        )
-        self.info_placeno_lbl = QLabel("  Plaćeno:")
-        self.info_placeno_lbl.setStyleSheet("color: #6b7280; font-size: 12px;")
-        self.info_placeno_val = QLabel("")
-        self.info_placeno_val.setStyleSheet(
-            "font-size: 14px; font-weight: 700; color: #059669;"
-        )
-        self.info_preostalo_lbl = QLabel("  Preostalo:")
-        self.info_preostalo_lbl.setStyleSheet("color: #6b7280; font-size: 12px;")
-        self.info_preostalo_val = QLabel("")
-        self.info_preostalo_val.setStyleSheet(
-            "font-size: 16px; font-weight: 800; color: #dc2626;"
+            "font-size: 16px; font-weight: 800; color: #111827;"
         )
         amounts_row.addWidget(self.info_iznos_lbl)
         amounts_row.addWidget(self.info_iznos_val)
-        amounts_row.addWidget(self.info_placeno_lbl)
-        amounts_row.addWidget(self.info_placeno_val)
-        amounts_row.addWidget(self.info_preostalo_lbl)
-        amounts_row.addWidget(self.info_preostalo_val)
         amounts_row.addStretch(1)
 
         info_layout.addWidget(self.info_kupac)
@@ -306,7 +290,7 @@ class PaymentsPage(QWidget):
 
         # Iznos
         iznos_row = QHBoxLayout()
-        iznos_lbl = QLabel("Iznos (KM):")
+        iznos_lbl = QLabel("Iznos uplate (EUR):")
         iznos_lbl.setFixedWidth(110)
         self.amount_spin = QDoubleSpinBox()
         self.amount_spin.setMinimum(0.01)
@@ -317,29 +301,6 @@ class PaymentsPage(QWidget):
         iznos_row.addWidget(iznos_lbl)
         iznos_row.addWidget(self.amount_spin, 1)
         form_layout.addLayout(iznos_row)
-
-        # Brza dugmad za iznos
-        quick_row = QHBoxLayout()
-        quick_row.setSpacing(8)
-        self.btn_full = QPushButton("Uplati puni iznos")
-        self.btn_full.setProperty("secondary", True)
-        self.btn_full.clicked.connect(self._set_full_amount)
-        self.btn_remaining = QPushButton("Uplati preostalo")
-        self.btn_remaining.setStyleSheet("""
-            QPushButton {
-                background: #eff6ff;
-                color: #2563eb;
-                border: 1px solid #bfdbfe;
-                border-radius: 10px;
-                padding: 8px 14px;
-                font-weight: 700;
-            }
-            QPushButton:hover { background: #dbeafe; }
-        """)
-        self.btn_remaining.clicked.connect(self._set_remaining_amount)
-        quick_row.addWidget(self.btn_full)
-        quick_row.addWidget(self.btn_remaining)
-        form_layout.addLayout(quick_row)
 
         # Datum
         datum_row = QHBoxLayout()
@@ -414,7 +375,7 @@ class PaymentsPage(QWidget):
 
         self.history_table = QTableWidget()
         self.history_table.setColumnCount(4)
-        self.history_table.setHorizontalHeaderLabels(["Datum", "Iznos (KM)", "Napomena", ""])
+        self.history_table.setHorizontalHeaderLabels(["Datum", "Iznos (EUR)", "Napomena", ""])
         hh = self.history_table.horizontalHeader()
         hh.setSectionResizeMode(0, QHeaderView.ResizeToContents)
         hh.setSectionResizeMode(1, QHeaderView.ResizeToContents)
@@ -452,29 +413,67 @@ class PaymentsPage(QWidget):
         
         self.customer_combo.blockSignals(False)
 
-    def _load_installments(self) -> None:
-        """Učitava rate sa filtrima."""
-        # Dobavi ID odabranog kupca
-        customer_id = self.customer_combo.currentData()
 
-        # Dobavi tekst pretrage
+    def _load_all_customer_installments(self, customer_id: int) -> list:
+        """
+        Učitava SVE RATE odabranog kupca (ne filtrira po statusu).
+        
+        Args:
+            customer_id: ID kupca čije rate učitavamo
+        
+        Returns:
+            Lista svih rata sortiranu po datumu dospijeća
+        """
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
+        from app.database.database import session_scope
+        from app.database.models import Installment, Order, Customer
+        from sqlalchemy import func
+        
+        with session_scope() as session:
+            # Učitaj sve rate za kupca
+            stmt = (
+                select(Installment)
+                .join(Order)
+                .where(Order.customer_id == customer_id)
+                .options(
+                    selectinload(Installment.order).selectinload(Order.customer),
+                    selectinload(Installment.payments),
+                )
+                .order_by(Installment.due_date.asc())
+            )
+            
+            installments = list(session.execute(stmt).scalars().unique())
+            
+            # Izračunaj paid_amount za svaku ratu
+            for inst in installments:
+                paid = sum(
+                    (p.amount for p in inst.payments), Decimal("0.00")
+                )
+                object.__setattr__(inst, '_paid_amount_value', paid)
+            
+            session.expunge_all()
+            return installments
+
+    def _load_installments(self) -> None:
+        """Učitava rate sa filtrima - filteri rade i kad je kupac odabran.
+        
+        Ako je kupac odabran, automatski filtrira samo NEPLAĆENE rate.
+        """
+        customer_id = self.customer_combo.currentData()
         search_text = self.search_edit.text().strip()
+        
+        # Ako je kupac odabran, koristi 'unpaid' filter (sakrij plaćene rate)
+        filter_to_use = self._active_filter
+        if customer_id is not None and self._active_filter == 'all':
+            filter_to_use = 'unpaid'  # Sakrij plaćene rate kad je kupac odabran
 
         try:
             installments = PaymentService.get_installments_for_payment(
-                filter_type=self._active_filter,
+                filter_type=filter_to_use,
                 search=search_text,
                 customer_id=customer_id
             )
-        except TypeError:
-            # Starija verzija servisa ne podržava customer_id
-            try:
-                installments = PaymentService.get_installments_for_payment(
-                    filter_type=self._active_filter,
-                    search=search_text
-                )
-            except Exception:
-                installments = []
         except Exception:
             installments = []
 
@@ -504,33 +503,47 @@ class PaymentsPage(QWidget):
             artikal = order.product_name_snapshot if order else ""
             self.installments_table.setItem(i, 1, QTableWidgetItem(artikal))
 
+            # Vrijednost (ukupna cijena narudžbe)
+            order_value = Decimal(str(order.total_price_snapshot)) if order else Decimal("0.00")
+            value_item = QTableWidgetItem(f"{order_value:.2f}")
+            value_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            self.installments_table.setItem(i, 2, value_item)
+
+            # Plaćeno (ukupno uplaćeno za ovu ratu)
+            paid_total = getattr(inst, '_paid_amount_value', Decimal("0"))
+            paid_item = QTableWidgetItem(f"{Decimal(str(paid_total)):.2f}")
+            paid_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            if paid_total > 0:
+                paid_item.setForeground(QBrush(QColor("#059669")))
+            self.installments_table.setItem(i, 3, paid_item)
+
+            # Preostalo (Vrijednost - Plaćeno)
+            remaining = order_value - Decimal(str(paid_total))
+            remaining_item = QTableWidgetItem(f"{remaining:.2f}")
+            remaining_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            if remaining > Decimal("0.01"):
+                remaining_item.setForeground(QBrush(QColor("#dc2626")))
+            else:
+                remaining_item.setForeground(QBrush(QColor("#059669")))
+            self.installments_table.setItem(i, 4, remaining_item)
+
             # Rata N/M
             total = order.installments_count if order else "?"
             rata_item = QTableWidgetItem(f"{inst.installment_number}/{total}")
             rata_item.setTextAlignment(Qt.AlignCenter)
             rata_item.setData(Qt.UserRole, inst.id)
-            self.installments_table.setItem(i, 2, rata_item)
+            self.installments_table.setItem(i, 5, rata_item)
 
             # Dospijeće — crveno ako kasni
             due_item = QTableWidgetItem(inst.due_date.strftime("%d.%m.%Y."))
             due_item.setTextAlignment(Qt.AlignCenter)
             if inst.due_date < today:
                 due_item.setForeground(QBrush(QColor("#dc2626")))
-            self.installments_table.setItem(i, 3, due_item)
+            self.installments_table.setItem(i, 6, due_item)
 
-            # Iznos rate
-            iznos = Decimal(str(inst.amount))
-            iznos_item = QTableWidgetItem(f"{iznos:.2f}")
-            iznos_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            self.installments_table.setItem(i, 4, iznos_item)
+            # [UKLONJENO: Iznos rate]
 
-            # Plaćeno
-            paid = getattr(inst, '_paid_amount_value', Decimal("0"))
-            paid_item = QTableWidgetItem(f"{Decimal(str(paid)):.2f}")
-            paid_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            if paid > 0:
-                paid_item.setForeground(QBrush(QColor("#059669")))
-            self.installments_table.setItem(i, 5, paid_item)
+            # [UKLONJENO: Staro Plaćeno]
 
             # Status badge
             status_val = inst.status.value if hasattr(inst.status, 'value') else str(inst.status)
@@ -539,7 +552,7 @@ class PaymentsPage(QWidget):
             status_item.setTextAlignment(Qt.AlignCenter)
             status_item.setBackground(QBrush(QColor(bg)))
             status_item.setForeground(QBrush(QColor(fg)))
-            self.installments_table.setItem(i, 6, status_item)
+            self.installments_table.setItem(i, 7, status_item)
 
             # Blago crveni red za kasne rate
             if status_val == "overdue":
@@ -558,7 +571,9 @@ class PaymentsPage(QWidget):
             color = "white" if checked else "#374151"
             btn.setIcon(get_pixmap(self._filter_icons[k], color, 16))
         self._active_filter = key
-        # Eksplicitno čitaj customer_id prije učitavanja
+        
+        # AKO JE KUPEC ODABRAN → filteri se ignorišu (prikazuju se SVE rate)
+        # Samo osvježi tabelu
         self._selected_customer_id = self.customer_combo.currentData()
         self._load_installments()
 
@@ -576,7 +591,7 @@ class PaymentsPage(QWidget):
             return
 
         row = self.installments_table.currentRow()
-        rata_item = self.installments_table.item(row, 2)
+        rata_item = self.installments_table.item(row, 5)
         if rata_item is None:
             return
 
@@ -592,7 +607,7 @@ class PaymentsPage(QWidget):
         if details is None:
             return
 
-        # Popuni info panel
+        # Popuni info panel - samo iznos rate
         kupac = self.installments_table.item(row, 0)
         artikal = self.installments_table.item(row, 1)
         self.info_kupac.setText(kupac.text() if kupac else "")
@@ -602,29 +617,20 @@ class PaymentsPage(QWidget):
         )
 
         amount = Decimal(str(details.amount))
-        paid = getattr(details, '_paid_amount_value', Decimal("0"))
-        remaining = amount - Decimal(str(paid))
-        if remaining < 0:
-            remaining = Decimal("0")
-
-        self.info_iznos_val.setText(f"{amount:.2f} KM")
-        self.info_placeno_val.setText(f"{Decimal(str(paid)):.2f} KM")
-        self.info_preostalo_val.setText(f"{remaining:.2f} KM")
+        self.info_iznos_val.setText(f"{amount:.2f} EUR")
 
         self._selected_installment_data = {
             "amount": amount,
-            "paid": Decimal(str(paid)),
-            "remaining": remaining,
         }
 
-        # Postavi default iznos = preostalo
-        self.amount_spin.setValue(float(remaining))
+        # Postavi default iznos = iznos rate
+        self.amount_spin.setValue(float(amount))
         self.date_edit.setDate(QDate.currentDate())
         self.note_edit.clear()
 
         # Aktiviraj formu
-        self.form_frame.setEnabled(remaining > 0)
-        self.btn_evidentiraj.setEnabled(remaining > 0)
+        self.form_frame.setEnabled(True)
+        self.btn_evidentiraj.setEnabled(True)
 
         # Prikaži historiju uplata
         self._load_payment_history(installment_id)
@@ -635,8 +641,6 @@ class PaymentsPage(QWidget):
         self.info_kupac.setText("← Odaberi ratu iz tabele")
         self.info_artikal.setText("")
         self.info_iznos_val.setText("")
-        self.info_placeno_val.setText("")
-        self.info_preostalo_val.setText("")
         self.form_frame.setEnabled(False)
         self.history_frame.setVisible(False)
 
@@ -644,33 +648,11 @@ class PaymentsPage(QWidget):
     # Akcije forme
     # ------------------------------------------------------------------
 
-    def _set_full_amount(self) -> None:
-        if self._selected_installment_data:
-            self.amount_spin.setValue(
-                float(self._selected_installment_data["amount"])
-            )
-
-    def _set_remaining_amount(self) -> None:
-        if self._selected_installment_data:
-            self.amount_spin.setValue(
-                float(self._selected_installment_data["remaining"])
-            )
-
     def _evidentiraj_uplatu(self) -> None:
         if self._selected_installment_id is None:
             return
 
         amount = Decimal(str(self.amount_spin.value())).quantize(Decimal("0.01"))
-
-        if self._selected_installment_data:
-            remaining = self._selected_installment_data["remaining"]
-            if amount > remaining:
-                QMessageBox.warning(
-                    self, "Greška",
-                    f"Iznos uplate ({amount:.2f} KM) ne može biti veći "
-                    f"od preostalog duga ({remaining:.2f} KM)."
-                )
-                return
 
         payment_date = self.date_edit.date().toPython()
         note = self.note_edit.toPlainText().strip() or None
@@ -684,7 +666,7 @@ class PaymentsPage(QWidget):
             )
             QMessageBox.information(
                 self, "Uspješno",
-                f"Uplata od {amount:.2f} KM je evidentirana."
+                f"Uplata od {amount:.2f} EUR je evidentirana."
             )
             self._ocisti_formu()
             self._load_installments()
@@ -764,7 +746,7 @@ class PaymentsPage(QWidget):
         reply = QMessageBox.question(
             self,
             "Potvrda brisanja uplate",
-            f"Da li sigurno želiš obrisati uplatu od {iznos} KM?\n\n"
+            f"Da li sigurno želiš obrisati uplatu od {iznos} EUR?\n\n"
             "Status rate i narudžbe će biti automatski ažurirani.\n"
             "Ova radnja se ne može poništiti.",
             QMessageBox.Yes | QMessageBox.No,

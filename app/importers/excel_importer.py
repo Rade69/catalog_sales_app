@@ -189,7 +189,7 @@ def _detect_header_row(path: Path) -> int:
     Skenira prvih 15 redova i pronalazi prvi koji ima bar 3 prepoznate
     ključne riječi (naziv, cijena, šifra, brend, bod, R.br...).
 
-    Za cjenovnike sa strukturom "R.br | Šifra | NAZIV | BOD | KM",
+    Za cjenovnike sa strukturom "R.br | Šifra | NAZIV | BOD | EUR",
     traži se barem 3 matcha od ovih kolona.
 
     Returns:

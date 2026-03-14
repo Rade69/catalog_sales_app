@@ -245,8 +245,8 @@ class CustomersPage(QWidget):
 
         self.orders_table = QTableWidget(0, 8)
         self.orders_table.setHorizontalHeaderLabels([
-            "Br. ugovora", "Artikal", "Cijena (KM)",
-            "Plaćeno", "Preostalo (KM)", "Završava", "Kasni", "Status"
+            "Br. ugovora", "Artikal", "Cijena (EUR)",
+            "Plaćeno", "Preostalo (EUR)", "Završava", "Kasni", "Status"
         ])
         oh = self.orders_table.horizontalHeader()
         oh.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # Br. ugovora
@@ -330,7 +330,7 @@ class CustomersPage(QWidget):
                 if (i.status.value if hasattr(i.status, "value") else str(i.status)) == "paid"
             )
 
-            # Ukupno uplaćeno KM (suma svih payment.amount)
+            # Ukupno uplaćeno EUR (suma svih payment.amount)
             total_paid = sum(
                 (
                     sum(p.amount for p in i.payments)
@@ -359,9 +359,9 @@ class CustomersPage(QWidget):
             row_data = [
                 (contract,                                       Qt.AlignCenter),
                 (order.product_name_snapshot,                    Qt.AlignLeft),
-                (f"{order.total_price_snapshot:.2f} KM",        Qt.AlignRight),
+                (f"{order.total_price_snapshot:.2f} EUR",        Qt.AlignRight),
                 (f"{paid_count} / {total_inst}",                 Qt.AlignCenter),
-                (f"{preostalo:.2f} KM",                          Qt.AlignRight),
+                (f"{preostalo:.2f} EUR",                          Qt.AlignRight),
                 (last_due.strftime("%d.%m.%Y") if last_due else "—", Qt.AlignCenter),
                 ("⚠" if kasni else "—",                          Qt.AlignCenter),
                 (status_bs,                                      Qt.AlignCenter),

@@ -217,15 +217,15 @@ def generate_naplata_excel(
         COL_UGOVOR:   "Br. ugovora\ni datum",
         COL_KUPAC:    "Prezime i\nime",
         COL_PROIZVOD: "Šifra\nproizvoda",
-        COL_VRIJED:   "Vrijed.\n(KM)",
+        COL_VRIJED:   "Vrijed.\n(EUR)",
         COL_BR_RATA:  "Br.\nrata",
     }
     # Nazivi rata: I, II, III...
     roman = ["I","II","III","IV","V","VI","VII","VIII","IX","X","XI","XII"]
     for i in range(max_inst):
         headers_row1[COL_INST_1 + i] = roman[i] if i < len(roman) else str(i+1)
-    headers_row1[COL_UKUPNO]    = "Ukupno\n(KM)"
-    headers_row1[COL_PREOSTALO] = "Preostalo\n(KM)"
+    headers_row1[COL_UKUPNO]    = "Ukupno\n(EUR)"
+    headers_row1[COL_PREOSTALO] = "Preostalo\n(EUR)"
 
     for col, val in headers_row1.items():
         c = ws.cell(row=current_row, column=col, value=val)

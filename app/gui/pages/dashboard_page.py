@@ -343,7 +343,7 @@ class DashboardPage(QWidget):
         # Tabela 1: Nedavne uplate
         payments_table_card = self._create_table_card(
             title="Nedavne uplate",
-            columns=["Kupac", "Artikal", "Rata", "Iznos (KM)", "Datum"],
+            columns=["Kupac", "Artikal", "Rata", "Iznos (EUR)", "Datum"],
             is_payments=True
         )
         layout.addWidget(payments_table_card, 0, 0)
@@ -498,7 +498,7 @@ class DashboardPage(QWidget):
             rata_item.setTextAlignment(Qt.AlignCenter)  # type: ignore[arg-type]
             table.setItem(i, 2, rata_item)
 
-            amount_item = create_numeric_item(row.amount, " KM")
+            amount_item = create_numeric_item(row.amount, " EUR")
             amount_item.setForeground(QColor("#059669"))
             table.setItem(i, 3, amount_item)
 
@@ -529,9 +529,9 @@ class DashboardPage(QWidget):
             rata_text = f"{row.installment_number}/{row.total_installments}"
             table.setItem(i, 2, QTableWidgetItem(rata_text))
 
-            table.setItem(i, 3, create_numeric_item(row.paid_amount, " KM"))
+            table.setItem(i, 3, create_numeric_item(row.paid_amount, " EUR"))
 
-            remaining_item = create_numeric_item(row.remaining_amount, " KM")
+            remaining_item = create_numeric_item(row.remaining_amount, " EUR")
             if row.remaining_amount > 0:
                 remaining_item.setForeground(QColor("#dc2626"))
             table.setItem(i, 4, remaining_item)

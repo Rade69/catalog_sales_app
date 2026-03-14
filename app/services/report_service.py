@@ -57,7 +57,7 @@ class ReportService:
                         "Artikal": order.product_name_snapshot,
                         "Kampanja": order.campaign.name if order.campaign else "",
                         "Rata": f"{installment.installment_number}/{order.installments_count}",
-                        "Iznos uplate (KM)": float(amount),
+                        "Iznos uplate (EUR)": float(amount),
                         "Napomena": payment.note or "",
                     }
                 )
@@ -78,7 +78,7 @@ class ReportService:
             report.dataframe = pd.DataFrame(
                 [{
                     "Info": "Za odabrani mjesec nema evidentiranih uplata.",
-                    "Ukupan iznos uplaćenih sredstava (KM)": float(report.total_paid),
+                    "Ukupan iznos uplaćenih sredstava (EUR)": float(report.total_paid),
                 }]
             )
         else:
@@ -89,7 +89,7 @@ class ReportService:
                     "Artikal": "",
                     "Kampanja": "",
                     "Rata": "",
-                    "Iznos uplate (KM)": float(report.total_paid),
+                    "Iznos uplate (EUR)": float(report.total_paid),
                     "Napomena": f"Broj uplata: {report.payments_count}",
                 }]
             )

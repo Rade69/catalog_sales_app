@@ -156,11 +156,11 @@ def generate_naplata_excel(
       C  — Br. ugovora i datum
       D  — Prezime i ime
       E  — Šifra proizvoda
-      F  — Vrijed. (KM)
+      F  — Vrijed. (EUR)
       G  — Br. rata
       H … H+max_inst-1 — rate I, II, III...
-      H+max_inst       — Ukupno (KM)
-      H+max_inst+1     — Preostalo (KM)
+      H+max_inst       — Ukupno (EUR)
+      H+max_inst+1     — Preostalo (EUR)
     """
     data      = _get_report_data(campaign_id)
     rows      = data["rows"]
@@ -244,10 +244,10 @@ def generate_naplata_excel(
         COL_UGOVOR:    "Br. ugovora\ni datum",
         COL_KUPAC:     "Prezime i\nime",
         COL_PROIZVOD:  "Šifra\nproizvoda",
-        COL_VRIJED:    "Vrijed.\n(KM)",
+        COL_VRIJED:    "Vrijed.\n(EUR)",
         COL_BR_RATA:   "Br.\nrata",
-        COL_UKUPNO:    "Ukupno\n(KM)",
-        COL_PREOSTALO: "Preostalo\n(KM)",
+        COL_UKUPNO:    "Ukupno\n(EUR)",
+        COL_PREOSTALO: "Preostalo\n(EUR)",
     }
     for i in range(max_inst):
         header_cells[COL_INST_1 + i] = ROMAN[i] if i < len(ROMAN) else str(i + 1)

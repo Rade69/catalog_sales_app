@@ -192,7 +192,7 @@ class PriceListService:
                 # Red je naziv firme ako:
                 # 1. Ima naziv
                 # 2. NEMA šifru artikla (ili je NaN/header)
-                # 3. NEMA cijenu (ili je NaN/header poput "KM")
+                # 3. NEMA cijenu (ili je NaN/header poput "EUR")
                 # 4. NEMA brand (ili je NaN)
                 is_supplier_row = (
                     name_str

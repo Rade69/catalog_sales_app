@@ -167,7 +167,7 @@ class InstallmentsPage(QWidget):
         self.table.setColumnCount(7)
         self.table.setHorizontalHeaderLabels([
             "Kupac", "Artikal", "Rata", "Dospijeće",
-            "Iznos (KM)", "Plaćeno (KM)", "Status",
+            "Iznos (EUR)", "Plaćeno (EUR)", "Status",
         ])
         style_table(self.table)
 
@@ -416,9 +416,9 @@ class InstallmentsPage(QWidget):
             f"color: {fg}; background: {bg}; border: 1px solid {fg}40;"
         )
 
-        self.lbl_iznos_val.setText(f"{inst.amount:.2f} KM")
-        self.lbl_placeno_val.setText(f"{paid:.2f} KM")
-        self.lbl_preostalo_val.setText(f"{remaining:.2f} KM")
+        self.lbl_iznos_val.setText(f"{inst.amount:.2f} EUR")
+        self.lbl_placeno_val.setText(f"{paid:.2f} EUR")
+        self.lbl_preostalo_val.setText(f"{remaining:.2f} EUR")
 
     def on_activate(self) -> None:
         """Poziva se kada se stranica aktivira."""

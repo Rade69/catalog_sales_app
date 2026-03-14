@@ -208,7 +208,7 @@ class OrdersPage(QWidget):
         layout.addWidget(self.product_input)
 
         # Cijena
-        layout.addWidget(QLabel("Cijena (KM):"))
+        layout.addWidget(QLabel("Cijena (EUR):"))
         self.price_input = QLineEdit()
         self.price_input.setPlaceholderText("npr. 199.99")
         layout.addWidget(self.price_input)
@@ -246,12 +246,12 @@ class OrdersPage(QWidget):
             "color:#059669; font-size:11px; font-weight:700; "
             "letter-spacing:0.05em; border:none; background:transparent;"
         )
-        self.preview_total_label = QLabel("Ukupno: 0.00 KM")
+        self.preview_total_label = QLabel("Ukupno: 0.00 EUR")
         self.preview_total_label.setStyleSheet(
             "font-size:18px; font-weight:800; color:#111827; "
             "border:none; background:transparent;"
         )
-        self.preview_installment_label = QLabel("10 × 0.00 KM po rati")
+        self.preview_installment_label = QLabel("10 × 0.00 EUR po rati")
         self.preview_installment_label.setStyleSheet(
             "font-size:13px; color:#374151; border:none; background:transparent;"
         )
@@ -329,7 +329,7 @@ class OrdersPage(QWidget):
         # Tabela artikala — 7 kolona (kao u Cjenovniku)
         self.articles_table = QTableWidget(0, 7)
         self.articles_table.setHorizontalHeaderLabels([
-            "Rb.", "Firma", "Naziv artikla", "Šifra", "Cijena (KM)", "Bod", "Status"
+            "Rb.", "Firma", "Naziv artikla", "Šifra", "Cijena (EUR)", "Bod", "Status"
         ])
         ah = self.articles_table.horizontalHeader()
         ah.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # Rb.
@@ -411,7 +411,7 @@ class OrdersPage(QWidget):
         self.table = QTableWidget(0, 8)
         self.table.setHorizontalHeaderLabels([
             "ID", "Br. ugovora", "Kupac", "Artikal",
-            "Cijena (KM)", "Rate", "Datum", "Status"
+            "Cijena (EUR)", "Rate", "Datum", "Status"
         ])
         th = self.table.horizontalHeader()
         th.setSectionResizeMode(0, QHeaderView.ResizeToContents)
@@ -768,8 +768,8 @@ class OrdersPage(QWidget):
             price = Decimal("0.00")
         inst = self.installments_combo.currentIndex() + 1
         per  = (price / inst).quantize(Decimal("0.01")) if inst else Decimal("0.00")
-        self.preview_total_label.setText(f"Ukupno: {price:.2f} KM")
-        self.preview_installment_label.setText(f"{inst} × {per:.2f} KM po rati")
+        self.preview_total_label.setText(f"Ukupno: {price:.2f} EUR")
+        self.preview_installment_label.setText(f"{inst} × {per:.2f} EUR po rati")
 
     # ------------------------------------------------------------------
     # Čuvanje narudžbe
@@ -871,7 +871,7 @@ class OrdersPage(QWidget):
             f"Kupac: {order.customer.full_name if order.customer else 'N/A'}\n"
             f"Artikal: {order.product_name_snapshot}\n"
             f"{contract_info}"
-            f"Ukupno: {order.total_price_snapshot:.2f} KM — {order.installments_count} rata\n"
+            f"Ukupno: {order.total_price_snapshot:.2f} EUR — {order.installments_count} rata\n"
             f"Status: {status_bs}\n\n"
             "Bit će obrisane i sve rate i uplate.\nOva radnja se ne može poništiti.",
             QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
@@ -1011,7 +1011,7 @@ class OrdersPage(QWidget):
             f"<b>Kupac:</b> {order.customer.full_name if order.customer else 'N/A'}<br>"
             f"<b>Artikal:</b> {order.product_name_snapshot}<br>"
             f"{contract_info}"
-            f"<b>Cijena:</b> {order.total_price_snapshot:.2f} KM<br>"
+            f"<b>Cijena:</b> {order.total_price_snapshot:.2f} EUR<br>"
             f"<b>Broj rata:</b> {order.installments_count}<br>"
             f"<b>Datum:</b> {order.order_date.strftime('%d.%m.%Y')}<br>"
             f"<b>Status:</b> <span style='color: {_ORDER_STATUS_COLOR.get(raw, "#374151")}; font-weight: 700;'>{status_bs}</span>"
@@ -1030,7 +1030,7 @@ class OrdersPage(QWidget):
         
         rates_table = QTableWidget()
         rates_table.setColumnCount(4)
-        rates_table.setHorizontalHeaderLabels(["Rata", "Iznos (KM)", "Dospijeće", "Status"])
+        rates_table.setHorizontalHeaderLabels(["Rata", "Iznos (EUR)", "Dospijeće", "Status"])
         rates_table.setRowCount(len(order.installments))
         rates_table.verticalHeader().setVisible(False)
         rates_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)

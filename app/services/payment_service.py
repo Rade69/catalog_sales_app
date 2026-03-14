@@ -82,7 +82,7 @@ class PaymentService:
                 raise ValueError('Odabrana rata je već u potpunosti plaćena.')
             if amount_decimal > remaining_before:
                 raise ValueError(
-                    f'Iznos uplate ({amount_decimal:.2f} KM) je veći od preostalog iznosa rate ({remaining_before:.2f} KM).'
+                    f'Iznos uplate ({amount_decimal:.2f} EUR) je veći od preostalog iznosa rate ({remaining_before:.2f} EUR).'
                 )
 
             payment = Payment(

@@ -203,13 +203,13 @@ class DashboardService:
             ),
             KpiData(
                 title="Ukupan preostali dug",
-                value=f"{total_debt:.2f} KM",
+                value=f"{total_debt:.2f} EUR",
                 footer="Aktivna potraživanja",
                 icon="💰"
             ),
             KpiData(
                 title="Naplaćeno ovaj mjesec",
-                value=f"{month_payments:.2f} KM",
+                value=f"{month_payments:.2f} EUR",
                 footer="Tekući mjesec",
                 icon="💳"
             ),

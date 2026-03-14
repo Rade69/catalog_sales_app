@@ -175,7 +175,7 @@ class CampaignsPage(QWidget):
         self.products_table = QTableWidget()
         self.products_table.setColumnCount(4)
         self.products_table.setHorizontalHeaderLabels([
-            "Naziv proizvoda", "Brend", "Cijena (KM)", "Bod"
+            "Naziv proizvoda", "Brend", "Cijena (EUR)", "Bod"
         ])
         ph = self.products_table.horizontalHeader()
         ph.setSectionResizeMode(0, QHeaderView.Stretch)  # type: ignore[arg-type]

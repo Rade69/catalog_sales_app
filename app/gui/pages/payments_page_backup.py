@@ -130,12 +130,12 @@ class PaymentsPage(QWidget):
         form_grid.setVerticalSpacing(10)
 
         # Iznos uplate
-        form_grid.addWidget(QLabel("Iznos uplate (KM):"), 0, 0)
+        form_grid.addWidget(QLabel("Iznos uplate (EUR):"), 0, 0)
         self.amount_input = QDoubleSpinBox()
         self.amount_input.setDecimals(2)
         self.amount_input.setMinimum(0.01)
         self.amount_input.setMaximum(9999999.99)
-        self.amount_input.setSuffix(" KM")
+        self.amount_input.setSuffix(" EUR")
         self.amount_input.setToolTip("Unesite iznos uplate")
         form_grid.addWidget(self.amount_input, 0, 1)
 
@@ -287,8 +287,8 @@ class PaymentsPage(QWidget):
                 self.installment_table.setItem(row_index, column_index, item)
 
             # Numeričke kolone
-            self.installment_table.setItem(row_index, 5, create_numeric_item(row.amount, " KM"))
-            self.installment_table.setItem(row_index, 6, create_numeric_item(row.remaining_amount, " KM"))
+            self.installment_table.setItem(row_index, 5, create_numeric_item(row.amount, " EUR"))
+            self.installment_table.setItem(row_index, 6, create_numeric_item(row.remaining_amount, " EUR"))
 
         self.installment_table.resizeColumnsToContents()
 
@@ -316,7 +316,7 @@ class PaymentsPage(QWidget):
         self.selected_info.setText(
             f"Odabrana rata: {order.customer.full_name} — {order.product_name_snapshot} — "
             f"rata {installment.installment_number}/{order.installments_count} — "
-            f"preostalo {self._current_remaining:.2f} KM"
+            f"preostalo {self._current_remaining:.2f} EUR"
         )
 
     def _fill_full_amount(self) -> None:
@@ -364,7 +364,7 @@ class PaymentsPage(QWidget):
         QMessageBox.information(
             self,
             "Uspjeh",
-            f"Uplata od {amount:.2f} KM je evidentirana."
+            f"Uplata od {amount:.2f} EUR je evidentirana."
         )
 
         self.clear_payment_form()
@@ -406,7 +406,7 @@ class PaymentsPage(QWidget):
                 self.payments_table.setItem(row_index, column_index, item)
 
             # Numerička kolona
-            self.payments_table.setItem(row_index, 5, create_numeric_item(payment.amount, " KM"))
+            self.payments_table.setItem(row_index, 5, create_numeric_item(payment.amount, " EUR"))
 
         self.payments_table.resizeColumnsToContents()
 

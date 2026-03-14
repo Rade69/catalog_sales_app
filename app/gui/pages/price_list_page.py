@@ -210,9 +210,9 @@ class PriceListPage(QWidget):
 
         self.items_table = QTableWidget()
         self.items_table.setColumnCount(7)
-        # Redoslijed: Rb. | Firma | Naziv artikla | Šifra | Cijena (KM) | Bod | Status
+        # Redoslijed: Rb. | Firma | Naziv artikla | Šifra | Cijena (EUR) | Bod | Status
         self.items_table.setHorizontalHeaderLabels([
-            "Rb.", "Firma", "Naziv artikla", "Šifra", "Cijena (KM)", "Bod", "Status"
+            "Rb.", "Firma", "Naziv artikla", "Šifra", "Cijena (EUR)", "Bod", "Status"
         ])
 
         header = self.items_table.horizontalHeader()
@@ -417,7 +417,7 @@ class PriceListPage(QWidget):
             code_item.setTextAlignment(Qt.AlignCenter)
             self.items_table.setItem(i, 3, code_item)
 
-            # Cijena (KM)
+            # Cijena (EUR)
             self.items_table.setItem(i, 4, create_numeric_item(item.regular_price))
 
             # Bod — odmah pored Cijene

@@ -149,7 +149,7 @@ def create_numeric_item(value: float | int | None, suffix: str = "") -> QTableWi
 
     Args:
         value: Numerička vrijednost
-        suffix: Sufiks (npr. " KM")
+        suffix: Sufiks (npr. " EUR")
 
     Returns:
         QTableWidgetItem
