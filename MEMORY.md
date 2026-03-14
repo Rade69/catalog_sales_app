@@ -1,5 +1,46 @@
 # Project Memory - Kataloška Prodaja
 
+## Verzije
+
+- **v0.25** (2026-03-13) - Svi iznosi u EUR, parser ispravan, uplate pojednostavljene
+- **v0.24** - Dashboard period filter uklonjen, CustomersPage fix extra query, SQLite WAL mode
+
+---
+
+## v0.25 - DETALJNE PROMJENE
+
+### 🔄 KM → EUR Konverzija
+- **Zamijenjene sve KM reference sa EUR** (15+ fajlova)
+- Sve kolone, label-e, izvještaji, poruke sada koriste EUR
+- Nema više konverzije EUR → KM u parseru
+
+### 📅 Parser - Ispravni Datumi
+- **Godina se čita iz zaglavlja bloka** (npr. "Oktobar 2025.god.")
+- **Datumi iz kolona** se parseuju sa tom godinom
+- **Logika:** Ako je mjesec < block_month → godina+1
+- Ignoriše se greška "2023" iz Excel-a (kolone 11, 12)
+
+### 💰 Logika Plaćanja
+- **Koriste se kolone "Ukupno" i "Preostalo"** iz Excel-a
+- **Ako je Ukupno ≥ Vrijednost** → SVE rate su PLAĆENE
+- **Ako je Ukupno > 0** → izračunaj broj plaćenih rata
+- **Tolerancija zaokruživanja:** 0.20 EUR
+
+### 💳 Payments Page - Pojednostavljeno
+- **Panel za uplate:** Prikazuje samo "Iznos rate"
+- **Uklonjena dugmad:** "Uplati puni iznos", "Uplati preostalo"
+- **Uklonjeno računanje:** "Preostalo", "Razlika"
+- **Filter:** Kad je kupac odabran → prikazuju se samo neplaćene rate
+- **Isplaćeni ugovori** (npr. Blac 3 set) se ne prikazuju 10 puta
+
+### 📜 Nove Skripte
+- `import_all_6_blocks_final.py` - Uvoz sa ispravnom logikom plaćanja
+- `create_payments_from_all_blocks.py` - Kreiranje uplata iz svih blokova
+- `backup_database.py` - Backup baze podataka
+- `fix_*.py` - Skripte za popravke (datumi, rate, konverzije)
+
+---
+
 ## Dokumentacija
 
 Za kompletnu dokumentaciju o arhitekturi, implementiranim funkcionalnostima i tehnologijama, pogledaj:
