@@ -1,3 +1,5 @@
+import subprocess
+import sys
 from pathlib import Path
 from datetime import datetime
 
@@ -10,6 +12,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QStackedWidget,
     QStatusBar,
@@ -17,9 +20,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.database.database import DATABASE_URL
+from app.database.database import DATABASE_URL, DB_PATH
 from app.gui.icons import get_pixmap
+from app.utils.logger import LOG_FILE
+from app.utils.paths import get_backup_dir
 from app.gui.pages.campaigns_page import CampaignsPage
+from app.services.dashboard_service import DashboardService
 from app.gui.pages.customers_page import CustomersPage
 from app.gui.pages.dashboard_page import DashboardPage
 from app.gui.pages.installments_page import InstallmentsPage
@@ -57,6 +63,7 @@ class MainWindow(QMainWindow):
         self._setup_status_bar()
 
         self.switch_page(0, self.nav_buttons[0])
+        self._update_overdue_badge()
 
     def _build_sidebar(self) -> QWidget:
         sidebar = QFrame()
@@ -99,6 +106,24 @@ class MainWindow(QMainWindow):
             layout.addWidget(btn)
             self.nav_buttons.append(btn)
             self.stack.addWidget(page)
+
+        # Badge za kasne rate na "Uplate" dugmetu (index 5)
+        self._overdue_badge = QLabel("")
+        self._overdue_badge.setFixedSize(22, 22)
+        self._overdue_badge.setAlignment(Qt.AlignCenter)
+        self._overdue_badge.setStyleSheet("""
+            QLabel {
+                background-color: #ef4444;
+                color: white;
+                border-radius: 11px;
+                font-size: 11px;
+                font-weight: 700;
+            }
+        """)
+        self._overdue_badge.hide()
+        # Ubaci badge u layout "Uplate" dugmeta
+        uplate_btn = self.nav_buttons[5]
+        uplate_btn.layout().addWidget(self._overdue_badge)
 
         layout.addStretch(1)
 
@@ -213,37 +238,97 @@ class MainWindow(QMainWindow):
         return btn
 
     def _create_settings_page(self) -> QWidget:
-        """Kreira stranicu Postavke (dummy za sada)."""
+        """Kreira stranicu Postavke."""
         page = QWidget()
-        layout = QVBoxLayout(page)
-        
-        title = QLabel("Postavke")
-        title.setProperty("sectionTitle", True)
-        layout.addWidget(title)
-        
-        # Backup sekcija
+        outer = QVBoxLayout(page)
+        outer.setContentsMargins(0, 0, 0, 0)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+
+        inner = QWidget()
+        layout = QVBoxLayout(inner)
+        layout.setContentsMargins(0, 0, 12, 0)
+        layout.setSpacing(16)
+
+        # ── Backup sekcija ──────────────────────────────────────────────
         backup_card = QFrame()
         backup_card.setProperty("card", True)
         backup_layout = QVBoxLayout(backup_card)
         backup_layout.setContentsMargins(18, 18, 18, 18)
-        
+        backup_layout.setSpacing(8)
+
         backup_title = QLabel("Backup baze podataka")
         backup_title.setProperty("sectionTitle", True)
         backup_layout.addWidget(backup_title)
-        
-        backup_desc = QLabel("Kreiraj sigurnosnu kopiju baze podataka.")
-        backup_desc.setStyleSheet("color: #6b7280;")
-        backup_layout.addWidget(backup_desc)
-        
+
+        backup_dir = get_backup_dir()
+        existing_backups = sorted(backup_dir.glob("catalog_sales_*.db")) if backup_dir.exists() else []
+        last_backup_text = (
+            f"Zadnji backup: {existing_backups[-1].name}" if existing_backups
+            else "Nema sačuvanih backupa."
+        )
+        self._backup_status_lbl = QLabel(last_backup_text)
+        self._backup_status_lbl.setStyleSheet("color: #6b7280; font-size: 12px;")
+        backup_layout.addWidget(self._backup_status_lbl)
+
+        backup_path_lbl = QLabel(f"Folder: {backup_dir}")
+        backup_path_lbl.setStyleSheet("color: #9ca3af; font-size: 11px;")
+        backup_path_lbl.setWordWrap(True)
+        backup_layout.addWidget(backup_path_lbl)
+
+        backup_btns = QHBoxLayout()
         backup_btn = QPushButton("💾 Kreiraj backup sada")
         backup_btn.setProperty("primary", True)
-        backup_btn.setFixedWidth(200)
-        backup_btn.clicked.connect(self._do_backup)
-        backup_layout.addWidget(backup_btn)
-        
+        backup_btn.setFixedWidth(210)
+        backup_btn.clicked.connect(self._do_backup_from_settings)
+        backup_btns.addWidget(backup_btn)
+
+        open_backup_btn = QPushButton("📂 Otvori folder")
+        open_backup_btn.setProperty("secondary", True)
+        open_backup_btn.setFixedWidth(140)
+        open_backup_btn.clicked.connect(lambda: self._open_in_files(backup_dir))
+        backup_btns.addWidget(open_backup_btn)
+        backup_btns.addStretch(1)
+        backup_layout.addLayout(backup_btns)
+
         layout.addWidget(backup_card)
 
-        # Historijski uvoz
+        # ── Log fajl sekcija ────────────────────────────────────────────
+        log_card = QFrame()
+        log_card.setProperty("card", True)
+        log_layout = QVBoxLayout(log_card)
+        log_layout.setContentsMargins(18, 18, 18, 18)
+        log_layout.setSpacing(8)
+
+        log_title = QLabel("Log fajl")
+        log_title.setProperty("sectionTitle", True)
+        log_layout.addWidget(log_title)
+
+        log_path_lbl = QLabel(f"Putanja: {LOG_FILE}")
+        log_path_lbl.setStyleSheet("color: #9ca3af; font-size: 11px;")
+        log_path_lbl.setWordWrap(True)
+        log_layout.addWidget(log_path_lbl)
+
+        log_btns = QHBoxLayout()
+        open_log_btn = QPushButton("📄 Otvori log fajl")
+        open_log_btn.setProperty("secondary", True)
+        open_log_btn.setFixedWidth(160)
+        open_log_btn.clicked.connect(lambda: self._open_file(LOG_FILE))
+        log_btns.addWidget(open_log_btn)
+
+        open_log_dir_btn = QPushButton("📂 Otvori folder")
+        open_log_dir_btn.setProperty("secondary", True)
+        open_log_dir_btn.setFixedWidth(140)
+        open_log_dir_btn.clicked.connect(lambda: self._open_in_files(LOG_FILE.parent))
+        log_btns.addWidget(open_log_dir_btn)
+        log_btns.addStretch(1)
+        log_layout.addLayout(log_btns)
+
+        layout.addWidget(log_card)
+
+        # ── Historijski uvoz ────────────────────────────────────────────
         hist_card = QFrame()
         hist_card.setProperty("card", True)
         hist_layout = QVBoxLayout(hist_card)
@@ -277,7 +362,44 @@ class MainWindow(QMainWindow):
         layout.addWidget(hist_card)
         layout.addStretch(1)
 
+        scroll.setWidget(inner)
+        outer.addWidget(scroll)
+
         return page
+
+    def _do_backup_from_settings(self) -> None:
+        """Backup iz settings stranice — ažurira i status label."""
+        self._do_backup()
+        backup_dir = get_backup_dir()
+        existing = sorted(backup_dir.glob("catalog_sales_*.db")) if backup_dir.exists() else []
+        if existing and hasattr(self, "_backup_status_lbl"):
+            self._backup_status_lbl.setText(f"Zadnji backup: {existing[-1].name}")
+
+    @staticmethod
+    def _open_in_files(path: Path) -> None:
+        """Otvori folder u Files Manageru (cross-platform)."""
+        path = Path(path)
+        if not path.exists():
+            path.mkdir(parents=True, exist_ok=True)
+        if sys.platform == "darwin":
+            subprocess.Popen(["open", str(path)])
+        elif sys.platform == "win32":
+            subprocess.Popen(["explorer", str(path)])
+        else:
+            subprocess.Popen(["xdg-open", str(path)])
+
+    @staticmethod
+    def _open_file(path: Path) -> None:
+        """Otvori fajl u podrazumjevanoj aplikaciji."""
+        path = Path(path)
+        if not path.exists():
+            return
+        if sys.platform == "darwin":
+            subprocess.Popen(["open", str(path)])
+        elif sys.platform == "win32":
+            subprocess.Popen(["start", str(path)], shell=True)
+        else:
+            subprocess.Popen(["xdg-open", str(path)])
 
     def _build_content(self) -> QWidget:
         wrapper = QWidget()
@@ -330,6 +452,7 @@ class MainWindow(QMainWindow):
             page_widget.on_activate()
         
         self._update_last_refresh()
+        self._update_overdue_badge()
         self._update_nav_button_style(button, is_active=True)
         
         # Resetuj ostala dugmad
@@ -340,11 +463,7 @@ class MainWindow(QMainWindow):
     def _do_backup(self) -> None:
         """Kreira backup baze podataka."""
         try:
-            # Izvuci putanju do baze iz DATABASE_URL
-            db_path = DATABASE_URL.replace("sqlite:///", "")
-            backup_dir = Path(__file__).resolve().parents[3] / "backup"
-
-            backup_file = BackupManager.backup_database(db_path, backup_dir)
+            backup_file = BackupManager.backup_database(DB_PATH, get_backup_dir())
 
             QMessageBox.information(
                 self,
@@ -423,6 +542,18 @@ class MainWindow(QMainWindow):
         # Desno: zadnje osvježenje
         self.status_refresh_label = QLabel("Posljednje osvježenje: --:--:--")
         status_bar.addPermanentWidget(self.status_refresh_label, 0)
+
+    def _update_overdue_badge(self) -> None:
+        """Ažurira badge broj kasnih rata na Uplate dugmetu."""
+        try:
+            count = DashboardService.get_overdue_installments_count()
+            if count > 0:
+                self._overdue_badge.setText(str(count) if count < 100 else "99+")
+                self._overdue_badge.show()
+            else:
+                self._overdue_badge.hide()
+        except Exception:
+            self._overdue_badge.hide()
 
     def _update_last_refresh(self) -> None:
         """Ažurira vrijeme zadnjeg osvježenja u statusnoj traci."""

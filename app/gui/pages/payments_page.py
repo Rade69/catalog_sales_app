@@ -463,10 +463,7 @@ class PaymentsPage(QWidget):
         customer_id = self.customer_combo.currentData()
         search_text = self.search_edit.text().strip()
         
-        # Ako je kupac odabran, koristi 'unpaid' filter (sakrij plaćene rate)
         filter_to_use = self._active_filter
-        if customer_id is not None and self._active_filter == 'all':
-            filter_to_use = 'unpaid'  # Sakrij plaćene rate kad je kupac odabran
 
         try:
             installments = PaymentService.get_installments_for_payment(

@@ -1,23 +1,44 @@
 import sys
+
 from PySide6.QtWidgets import QApplication
 
-from app.database.database import init_db
+from app.utils.logger import setup_logging, get_logger
+from app.database.database import init_db, DB_PATH
 from app.gui.main_window import MainWindow
 from app.services.installment_service import InstallmentService
+from app.utils.backup_manager import BackupManager
+from app.utils.paths import get_backup_dir
 
 
 def main() -> None:
+    setup_logging()
+    log = get_logger("app.startup")
+    log.info("Pokretanje aplikacije")
+
     init_db()
+    log.info("Baza inicijalizovana: %s", DB_PATH)
+
+    # Automatski backup pri pokretanju
+    try:
+        backup_file = BackupManager.auto_backup(DB_PATH, get_backup_dir(), keep=7)
+        log.info("Auto-backup kreiran: %s", backup_file.name)
+    except Exception:
+        log.exception("Auto-backup nije uspio")
 
     # Sinhronizuj status rata pri pokretanju
-    InstallmentService.sync_statuses()
+    try:
+        InstallmentService.sync_statuses()
+        log.info("Statusi rata sinhronizovani")
+    except Exception:
+        log.exception("sync_statuses nije uspio")
 
     app = QApplication(sys.argv)
-    app.setApplicationName("Catalog Sales App")
+    app.setApplicationName("Kataloška prodaja")
 
     window = MainWindow()
     window.show()
 
+    log.info("GUI pokrenut")
     sys.exit(app.exec())
 
 

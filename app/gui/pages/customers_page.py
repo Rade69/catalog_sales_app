@@ -5,6 +5,7 @@ from typing import Optional
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont, QKeySequence, QAction
 from PySide6.QtWidgets import (
+    QFileDialog,
     QFrame,
     QGridLayout,
     QGroupBox,
@@ -133,6 +134,13 @@ class CustomersPage(QWidget):
         btn_row.addWidget(self.new_btn, 1)
         btn_row.addWidget(self.delete_btn)
         layout.addLayout(btn_row)
+
+        # Izvoz u Excel
+        export_btn = QPushButton("📊 Izvezi u Excel")
+        export_btn.setProperty("secondary", True)
+        export_btn.setToolTip("Izvezi prikazane kupce u Excel fajl")
+        export_btn.clicked.connect(self._export_to_excel)
+        layout.addWidget(export_btn)
 
         # Brojač
         self.count_label = QLabel("")
@@ -526,6 +534,75 @@ class CustomersPage(QWidget):
         self.customer_card.hide()
         self.delete_btn.setEnabled(False)
         self.load_customers()
+
+    def _export_to_excel(self) -> None:
+        """Izvezi trenutno prikazane kupce u Excel fajl."""
+        customers = CustomerService.list_customers(self.search_input.text())
+        if not customers:
+            QMessageBox.information(self, "Izvoz", "Nema kupaca za izvoz.")
+            return
+
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Sačuvaj Excel fajl", "kupci.xlsx", "Excel fajlovi (*.xlsx)"
+        )
+        if not path:
+            return
+
+        try:
+            import openpyxl
+            from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Kupci"
+
+            # Stilovi
+            header_font = Font(bold=True, color="FFFFFF", size=12)
+            header_fill = PatternFill("solid", fgColor="1F3864")
+            header_align = Alignment(horizontal="center", vertical="center")
+            thin = Side(style="thin", color="D1D5DB")
+            border = Border(left=thin, right=thin, top=thin, bottom=thin)
+            alt_fill = PatternFill("solid", fgColor="F9FAFB")
+
+            # Zaglavlje
+            headers = ["Ime i prezime", "Telefon", "Grad", "Adresa", "Napomena"]
+            col_widths = [30, 18, 20, 30, 40]
+            for col, (h, w) in enumerate(zip(headers, col_widths), start=1):
+                cell = ws.cell(row=1, column=col, value=h)
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = header_align
+                cell.border = border
+                ws.column_dimensions[cell.column_letter].width = w
+            ws.row_dimensions[1].height = 24
+
+            # Podaci
+            for row_idx, c in enumerate(customers, start=2):
+                row_fill = PatternFill("solid", fgColor="FFFFFF") if row_idx % 2 == 0 else alt_fill
+                values = [
+                    c.full_name,
+                    c.phone or "",
+                    c.city or "",
+                    c.address or "",
+                    c.note or "",
+                ]
+                for col, val in enumerate(values, start=1):
+                    cell = ws.cell(row=row_idx, column=col, value=val)
+                    cell.fill = row_fill
+                    cell.border = border
+                    cell.alignment = Alignment(vertical="center", wrap_text=(col == 5))
+                ws.row_dimensions[row_idx].height = 18
+
+            # Freeze zaglavlje
+            ws.freeze_panes = "A2"
+
+            wb.save(path)
+            QMessageBox.information(
+                self, "Izvoz uspješan",
+                f"Izvezeno {len(customers)} kupaca:\n{path}"
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Greška pri izvozu", str(e))
 
     def on_activate(self) -> None:
         self.load_customers()

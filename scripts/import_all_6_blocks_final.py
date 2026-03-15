@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 """
-Uvoz svih 6 blokova sa ISPRAVNIM datumima.
+Uvoz svih 6 blokova sa ISPRAVNOM logikom plaćanja.
 
-Ključne popravke:
-1. Godina se čita iz zaglavlja bloka (npr. "Oktobar 2025.god.")
-2. Datumi iz kolona se parseuju sa tom godinom
-3. Ako je mjesec u datumu < mjesec bloka, koristi se godina+1
-   (npr. Oktobar 2025 + "31.jan." → 31.01.2026)
+KLJUČNA LOGIKA:
+1. Kolona 19 "Ukupno" = suma svih uplata do sada
+2. Kolona 20 "Preostalo" = koliko još treba platiti
+3. Ako je "Ukupno" >= "Vrijednost" → proizvod je ISPLAĆEN (sve rate su PLAĆENE)
+4. Ako je "Ukupno" > 0 ali < "Vrijednost" → djelimično plaćeno
+   - Parser treba pročitati kolone I-XII i vidjeti koje rate imaju iznos
+   - Ako rata ima iznos u koloni → ta rata je PLAĆENA
+5. Ako je "Ukupno" = 0 → nije plaćeno ništa
+
+"Br.rata" (kolona 6) je MAKSIMALNI broj rata (do 10), ne znači da su sve aktivne.
 """
 
 from __future__ import annotations
@@ -32,6 +37,7 @@ from app.database.models import (
     InstallmentStatus,
     Order,
     OrderStatus,
+    Payment,
 )
 from app.services.installment_service import InstallmentService
 
@@ -106,12 +112,7 @@ def _find_block_starts(df: pd.DataFrame) -> list[int]:
 
 
 def _parse_block_month_year(df: pd.DataFrame, block_start: int) -> tuple[int, int]:
-    """
-    Izvuci mjesec i godinu iz bloka.
-    
-    Returns:
-        (month_num, year_num) npr. (10, 2025) za Oktobar 2025
-    """
+    """Izvuci mjesec i godinu iz bloka."""
     month_row_idx = block_start + 1
     
     if month_row_idx >= len(df):
@@ -150,18 +151,9 @@ def _parse_date_from_column(date_str: str, block_month: int, block_year: int) ->
     """
     Parsira datum iz kolone (npr. "28.feb.", "31.okt.").
     
-    Args:
-        date_str: String iz kolone (npr. "28.feb.")
-        block_month: Mjesec bloka (npr. 10 za Oktobar)
-        block_year: Godina bloka (npr. 2025)
-    
-    Returns:
-        date objekat
-    
     Logika:
         - Ako je mjesec u datumu >= block_month → koristi block_year
         - Ako je mjesec u datumu < block_month → koristi block_year + 1
-          (npr. Oktobar 2025 + "31.jan." → 31.01.2026)
     """
     if not date_str or date_str in ("nan", "", "—"):
         return None
@@ -184,12 +176,9 @@ def _parse_date_from_column(date_str: str, block_month: int, block_year: int) ->
             month = 8
         
         if month:
-            # Odredi godinu
             if month < block_month:
-                # Mjesec je manji → sljedeća godina
                 year = block_year + 1
             else:
-                # Mjesec je isti ili veći → ista godina
                 year = block_year
             
             try:
@@ -197,15 +186,12 @@ def _parse_date_from_column(date_str: str, block_month: int, block_year: int) ->
             except ValueError:
                 return None
     
-    # Pokušaj ISO format (ako je pandas već konvertovao)
-    # ALI: Ignoriši godinu iz ISO formata ako je 2023 (greška u Excel-u)
-    # Koristi godinu iz bloka
+    # ISO format - ignoriši godinu iz Excel-a (greška), koristi godinu iz bloka
     iso_match = re.match(r'\d{4}-(\d{2})-(\d{2})', date_str)
     if iso_match:
         month = int(iso_match.group(1))
         day = int(iso_match.group(2))
         
-        # Odredi godinu na osnovu block_month
         if month < block_month:
             year = block_year + 1
         else:
@@ -245,7 +231,15 @@ def _parse_due_dates(df: pd.DataFrame, block_start: int, block_month: int, block
 
 def _parse_orders_in_block(df: pd.DataFrame, block_start: int, block_end: int, 
                            due_dates: list[date], month_num: int, year_num: int) -> list[dict]:
-    """Parsiraj sve ugovore u bloku."""
+    """
+    Parsiraj sve ugovore u bloku sa ISPRAVNOM logikom plaćanja.
+    
+    KLJUČNA LOGIKA:
+    - Kolona 19 (index 19) = "Ukupno" (suma svih uplata)
+    - Kolona 20 (index 20) = "Preostalo" (koliko još treba platiti)
+    - Ako je Ukupno >= Vrijednost → SVE rate su PLAĆENE
+    - Ako je Ukupno > 0 → pročitaj kolone I-XII i vidi koje rate imaju iznos
+    """
     orders = []
     
     data_start = block_start + 5
@@ -267,7 +261,10 @@ def _parse_orders_in_block(df: pd.DataFrame, block_start: int, block_end: int,
         sifra = get(4)
         vrijed = get(5)
         br_rata = get(6)
-        preostalo = get(20)
+        
+        # NOVO: Čitaj "Ukupno" i "Preostalo"
+        ukupno = get(19)  # Kolona 19 = suma uplata
+        preostalo = get(20)  # Kolona 20 = koliko još treba
         
         if not rb or not br_ugovora or not ime:
             continue
@@ -284,20 +281,43 @@ def _parse_orders_in_block(df: pd.DataFrame, block_start: int, block_end: int,
         seen_contracts.add(br_ugovora)
         
         vrijed_dec = _safe_decimal(vrijed)
+        ukupno_dec = _safe_decimal(ukupno)
         preostalo_dec = _safe_decimal(preostalo)
         
-        # Datum prve rate = prvi datum iz due_dates
+        # Odredi da li je isplaćeno
+        is_fully_paid = False
+        if vrijed_dec and ukupno_dec:
+            if ukupno_dec >= vrijed_dec:
+                is_fully_paid = True
+            elif preostalo_dec is not None and preostalo_dec <= Decimal("0.01"):
+                is_fully_paid = True
+        
+        # Prva rata dospijeva
         first_due_date = due_dates[0] if due_dates else date(year_num, month_num, 1)
+        
+        # Čitaj uplate iz kolona I-XII (kolone 7-18)
+        payments_by_installment = {}
+        for col in range(7, min(19, len(row))):
+            payment_val = get(col)
+            if payment_val and payment_val not in ("nan", ""):
+                try:
+                    payment_eur = _safe_decimal(payment_val)
+                    if payment_eur and payment_eur > 0:
+                        installment_num = col - 6  # Kolona 7 = Rata 1
+                        payments_by_installment[installment_num] = payment_eur
+                except:
+                    pass
         
         orders.append({
             "br_ugovora": br_ugovora,
             "ime": _normalize_name(ime),
             "sifra": sifra,
             "vrijed_eur": vrijed_dec,
-            "vrijed_bam": (vrijed_dec * EUR_TO_BAM).quantize(Decimal("0.01")) if vrijed_dec else None,
+            "ukupno_eur": ukupno_dec,
+            "preostalo_eur": preostalo_dec,
+            "is_fully_paid": is_fully_paid,
+            "payments_by_installment": payments_by_installment,
             "br_rata": _safe_int(br_rata),
-            "preostalo": preostalo_dec,
-            "completed": (preostalo_dec is not None and preostalo_dec <= Decimal("0.01")),
             "first_due_date": first_due_date,
             "due_dates": due_dates,
             "month": month_num,
@@ -334,6 +354,7 @@ def import_all_blocks() -> dict:
         'orders_created': 0,
         'orders_skipped': 0,
         'installments_created': 0,
+        'payments_created': 0,
     }
     
     with session_scope() as session:
@@ -380,6 +401,10 @@ def import_all_blocks() -> dict:
             orders_data = _parse_orders_in_block(df, block_start, block_end, due_dates, month_num, year_num)
             print(f"Broj ugovora: {len(orders_data)}")
             
+            # Broj isplaćenih ugovora
+            fully_paid_count = sum(1 for o in orders_data if o['is_fully_paid'])
+            print(f"Isplaćeno ugovora: {fully_paid_count}")
+            
             for order_data in orders_data:
                 name = order_data["ime"]
                 name_key = name.lower()
@@ -399,8 +424,14 @@ def import_all_blocks() -> dict:
                     stats['orders_skipped'] += 1
                     continue
                 
-                price = order_data["vrijed_bam"] or Decimal("0.00")
-                status = OrderStatus.COMPLETED if order_data["completed"] else OrderStatus.ACTIVE
+                price = order_data["vrijed_eur"] or Decimal("0.00")
+                
+                # Status na osnovu "Ukupno" i "Preostalo"
+                if order_data["is_fully_paid"]:
+                    status = OrderStatus.COMPLETED
+                else:
+                    status = OrderStatus.ACTIVE
+                
                 first_due_date = order_data["first_due_date"]
                 
                 order = Order(
@@ -414,13 +445,14 @@ def import_all_blocks() -> dict:
                     contract_number=order_data["br_ugovora"],
                     order_date=first_due_date,
                     first_due_date=first_due_date,
-                    note=f"Uvezeno iz {path.stem} ({order_data['month']}/{order_data['year']}). Svi iznosi u EUR.",
+                    note=f"Uvezeno iz {path.stem} ({order_data['month']}/{order_data['year']}). Ukupno: {order_data['ukupno_eur']} EUR, Preostalo: {order_data['preostalo_eur']} EUR",
                 )
                 session.add(order)
                 session.flush()
                 
                 existing_contracts.add(order_data["br_ugovora"])
                 
+                # Kreiraj rate
                 installments = []
                 allocated = Decimal("0.00")
                 base_amount = (price / order_data["br_rata"]).quantize(Decimal("0.01"))
@@ -433,21 +465,52 @@ def import_all_blocks() -> dict:
                     
                     due_date = order_data["due_dates"][i] if i < len(order_data["due_dates"]) else first_due_date
                     
+                    # Odredi status rate
+                    if order_data["is_fully_paid"]:
+                        inst_status = InstallmentStatus.PAID
+                    elif (i + 1) in order_data["payments_by_installment"]:
+                        inst_status = InstallmentStatus.PAID
+                    else:
+                        inst_status = InstallmentStatus.PENDING
+                    
                     installment = Installment(
                         order=order,
                         installment_number=i + 1,
                         due_date=due_date,
                         amount=amount,
-                        status=InstallmentStatus.PENDING,
+                        status=inst_status,
                     )
                     installments.append(installment)
                     session.add(installment)
+                
+                # Flush da bi installments dobili ID
+                session.flush()
+                
+                # Kreiraj Payments NAKON što su installments dodani
+                # VAŽNO: Kreira uplate SAMO za rate koje imaju eksplicitnu vrijednost
+                # u Excel kolonama (payments_by_installment). Ako je ugovor isplaćen
+                # ali nema eksplicitne vrijednosti za neku ratu — ne kreira lažnu uplatu.
+                pbi = order_data["payments_by_installment"]
+                for i, installment in enumerate(installments):
+                    rata_num = i + 1
+                    if rata_num in pbi:
+                        # Eksplicitna uplata iz Excel kolone
+                        payment = Payment(
+                            installment_id=installment.id,
+                            payment_date=installment.due_date,
+                            amount=pbi[rata_num],
+                            note="Uvezeno iz Excel-a"
+                        )
+                        session.add(payment)
+                        stats['payments_created'] += 1
                 
                 stats['orders_created'] += 1
                 stats['installments_created'] += len(installments)
                 
                 if stats['orders_created'] <= 3:
                     print(f"  ✅ {order_data['br_ugovora']}: {name}, {price:.2f} EUR, {order_data['br_rata']} rata")
+                    print(f"      Ukupno: {order_data['ukupno_eur']} EUR, Preostalo: {order_data['preostalo_eur']} EUR")
+                    print(f"      Status: {'ISPLAĆENO' if order_data['is_fully_paid'] else 'AKTIVNO'}")
                     print(f"      Prva rata: {first_due_date}")
     
     return stats
@@ -459,8 +522,8 @@ def import_all_blocks() -> dict:
 
 def main() -> None:
     print("\n" + "="*80)
-    print("📦 UVOZ SVIH 6 BLOKOVA SA ISPRAVNIM DATUMIMA")
-    print("Datumi se čitaju iz kolona + godina iz zaglavlja")
+    print("📦 UVOZ SVIH 6 BLOKOVA SA ISPRAVNOM LOGIKOM PLAĆANJA")
+    print("Koristi kolone 'Ukupno' i 'Preostalo' za određivanje statusa")
     print("="*80)
     
     stats = import_all_blocks()
@@ -473,13 +536,14 @@ def main() -> None:
     print(f"  ✅ Kreirano narudžbi:    {stats['orders_created']}")
     print(f"  ⏭️  Preskočeno (dupli):  {stats['orders_skipped']}")
     print(f"  ✅ Kreirano rata:        {stats['installments_created']}")
+    print(f"  ✅ Kreirano uplata:      {stats['payments_created']}")
     print("="*80)
     
     print("\n✅ UVOZ ZAVRŠEN!")
     print("\n📝 SLEDEĆI KORACI:")
-    print("   1. Kreiraj uplate: python create_payments_from_all_blocks.py")
-    print("   2. Sinhronizuj statuse: python3 -c 'from app.services.installment_service import InstallmentService; InstallmentService.sync_statuses()'")
-    print("   3. Pokreni aplikaciju: python run.py")
+    print("   1. Sinhronizuj statuse: python3 -c 'from app.services.installment_service import InstallmentService; InstallmentService.sync_statuses()'")
+    print("   2. Pokreni aplikaciju: python run.py")
+    print("   3. Provjeri Uplate → odaberi kupca → vidi ispravne statuse")
     print()
 
 
