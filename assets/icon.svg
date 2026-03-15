@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Pozadina: zaobljeni kvadrat, tamno plava -->
+  <rect width="512" height="512" rx="96" ry="96" fill="#1e3a5f"/>
+
+  <!-- Katalog / knjiga -->
+  <rect x="128" y="100" width="256" height="312" rx="18" ry="18" fill="#ffffff" opacity="0.12"/>
+  <rect x="144" y="100" width="240" height="312" rx="14" ry="14" fill="#ffffff"/>
+
+  <!-- Spiralna kičma lijevo -->
+  <rect x="128" y="100" width="32" height="312" rx="10" ry="10" fill="#3b82f6"/>
+
+  <!-- Linije teksta -->
+  <rect x="196" y="160" width="132" height="14" rx="7" fill="#1e3a5f" opacity="0.6"/>
+  <rect x="196" y="192" width="108" height="12" rx="6" fill="#1e3a5f" opacity="0.35"/>
+  <rect x="196" y="220" width="120" height="12" rx="6" fill="#1e3a5f" opacity="0.35"/>
+
+  <!-- Separator -->
+  <rect x="196" y="252" width="148" height="2" rx="1" fill="#1e3a5f" opacity="0.15"/>
+
+  <!-- Linije teksta 2 -->
+  <rect x="196" y="270" width="116" height="12" rx="6" fill="#1e3a5f" opacity="0.35"/>
+  <rect x="196" y="296" width="96" height="12" rx="6" fill="#1e3a5f" opacity="0.35"/>
+  <rect x="196" y="322" width="128" height="12" rx="6" fill="#1e3a5f" opacity="0.35"/>
+
+  <!-- EUR znak u donjem desnom uglu -->
+  <circle cx="348" cy="348" r="52" fill="#3b82f6"/>
+  <text x="348" y="367" text-anchor="middle" font-family="Arial, sans-serif"
+        font-size="52" font-weight="700" fill="#ffffff">€</text>
+</svg>

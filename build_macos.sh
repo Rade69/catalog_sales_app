@@ -28,6 +28,14 @@ if ! command -v pyinstaller &> /dev/null; then
     exit 1
 fi
 
+# Generiši ikonu ako ICNS ne postoji
+if [ ! -f "assets/icon.icns" ]; then
+    echo "→ Generiše ikonu (assets/icon.icns)..."
+    python scripts/make_icon.py
+else
+    echo "→ Ikonica već postoji (assets/icon.icns)"
+fi
+
 # Očisti stare buildove
 echo "→ Čistim stare buildove..."
 rm -rf dist/KataloškaProdaja dist/"Kataloška prodaja.app" build/KataloškaProdaja __pycache__

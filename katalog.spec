@@ -24,6 +24,8 @@ a = Analysis(
     datas=[
         # Uključi sve Python fajlove aplikacije
         ('app', 'app'),
+        # Ikonica (PNG fallback ako ICNS ne postoji)
+        ('assets/icon.png', 'assets'),
     ],
     hiddenimports=[
         # SQLAlchemy dialekti
@@ -98,7 +100,7 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name='Kataloška prodaja.app',
-    icon=None,           # Zamijeni putanjom do .icns fajla ako imaš: 'assets/icon.icns'
+    icon='assets/icon.icns',  # Generiše se sa: python scripts/make_icon.py
     bundle_identifier='com.katalog.prodaja',
     version='1.0.0',
     info_plist={
