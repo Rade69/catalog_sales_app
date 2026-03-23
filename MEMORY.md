@@ -2,8 +2,118 @@
 
 ## Verzije
 
+- **v0.28** (2026-03-23) - Unit testovi za servise (77 testova, 91% coverage)
+- **v0.27** - App ikonica (katalog + EUR znak)
+- **v0.26** - Logiranje, auto-backup, Settings, macOS packaging
 - **v0.25** (2026-03-13) - Svi iznosi u EUR, parser ispravan, uplate pojednostavljene
 - **v0.24** - Dashboard period filter uklonjen, CustomersPage fix extra query, SQLite WAL mode
+
+---
+
+## v0.28 - UNIT TESTOVI
+
+### 📦 Test Infrastruktura
+- **requirements-dev.txt**: pytest>=7.4, pytest-cov>=4.1
+- **pytest.ini**: konfiguracija sa coverage postavkama
+- **tests/conftest.py**: fixture-ovi za in-memory SQLite bazu
+
+### 🧪 Testovi (77 ukupno)
+
+**test_payment_service.py (31 test):**
+- `_recalculate_installment_status`: 6 testova (paid, partially_paid, overdue, pending, overpaid, multiple payments)
+- `_recalculate_order_status`: 3 testa (completed, active, rollback)
+- `create_payment`: 9 testova (full, partial, second payment, validation, edge cases)
+- `delete_payment`: 3 testa (revert status, revert order, nonexistent)
+- `get_installment`: 2 testa (existing, nonexistent)
+- `get_installments_for_payment`: 5 testova (overdue, unpaid, all, by customer, search)
+- `get_installment_details`: 1 test
+- `get_payments_for_installment`: 2 testa (with payments, empty)
+
+**test_order_service.py (33 testa):**
+- `validate_order_input`: 12 testova (valid, missing customer, empty product, price validation, installments validation)
+- `create_order`: 9 testova (success, installments count, sum equals total, validations, contract number)
+- `delete_order`: 3 testa (success, nonexistent, with payments)
+- `get_order_details`: 2 testa (existing, nonexistent)
+- `list_orders`: 3 testa (all, filtered, empty)
+- `get_orders_for_customer`: 2 testa (with orders, no orders)
+- `update_contract_number`: 2 testa (set, set none)
+
+**test_installment_service.py (13 testova):**
+- `generate_for_order`: 6 testova (single, multiple, sum equals total, last amount adjusted, due dates, zero count error)
+- `sync_statuses`: 7 testova (fully paid, partially paid, overdue, pending, mixed states, overpaid, no installments)
+
+### 📊 Coverage (91% ukupno)
+```
+installment_service.py:  96% (55 stmt, 2 miss)
+order_service.py:        83% (148 stmt, 25 miss)
+payment_service.py:      98% (125 stmt, 2 miss)
+```
+
+### 🔧 Popravke u Servisima
+
+**order_service.py:**
+```python
+# Dodato add(inst) za rate
+installments = InstallmentService.generate_for_order(order)
+for inst in installments:
+    session.add(inst)
+```
+
+**installment_service.py:**
+```python
+# sync_statuses sada ažurira i Order status
+for order in orders_to_update.values():
+    if order.installments and all(inst.status == InstallmentStatus.PAID for inst in order.installments):
+        order.status = OrderStatus.COMPLETED
+    elif order.status == OrderStatus.COMPLETED:
+        order.status = OrderStatus.ACTIVE
+```
+
+**payment_service.py:**
+```python
+# Fixed exception handling u validate_order_input
+except (ValueError, TypeError, AttributeError, Exception):
+    return False, "Neispravna cijena."
+```
+
+### 🚀 Pokretanje Testova
+```bash
+# Svi testovi
+pytest
+
+# Sa coverage
+coverage run -m pytest
+coverage report
+
+# Specifičan fajl
+pytest tests/test_payment_service.py -v
+
+# Coverage za specifične servise
+coverage report --include="app/services/payment_service.py" -m
+```
+
+---
+
+## v0.27 - APP IKONICA
+
+**assets/icon.svg:**
+- Vektorska ikonica (1024x1024)
+- Tamno plava pozadina (#1e3c72)
+- Bijela silueta kataloga
+- EUR znak u donjem desnom uglu
+
+**assets/icon.png:**
+- 1024x1024 PNG (generisan iz SVG)
+
+**scripts/make_icon.py:**
+- Konvertuje SVG → PNG → ICNS (macOS format)
+- Kreira iconset folder sa svim veličinama
+
+**build_macos.sh:**
+- Automatski generiše ICNS prije PyInstaller builda
+
+**katalog.spec:**
+- Referencira assets/icon.icns za .app bundle
 
 ---
 
