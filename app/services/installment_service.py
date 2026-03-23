@@ -56,7 +56,13 @@ class InstallmentService:
         - 0 < paid_amount < installment.amount → PARTIALLY_PAID
         - due_date < today AND paid_amount == 0 → OVERDUE
         - inače → PENDING
+        
+        Takođe ažurira status narudžbe:
+        - Sve rate PAID → order COMPLETED
+        - Inače → order ACTIVE
         """
+        from app.database.models import OrderStatus
+        
         today = date.today()
 
         with session_scope() as session:
@@ -67,6 +73,9 @@ class InstallmentService:
                 .order_by(Installment.id)
             )
             installments = list(session.execute(stmt).scalars().all())
+            
+            # Grupiši rate po order_id za ažuriranje order status-a
+            orders_to_update: dict[int, Order] = {}
 
             for installment in installments:
                 paid_amount = sum(
@@ -88,3 +97,17 @@ class InstallmentService:
                     installment.status = new_status
                     if new_status == InstallmentStatus.PAID:
                         installment.paid_at = date.today()
+                
+                # Sačuvaj referencu na order za kasnije ažuriranje
+                if installment.order_id not in orders_to_update:
+                    orders_to_update[installment.order_id] = installment.order
+
+            # Ažuriraj status svih order-a
+            for order in orders_to_update.values():
+                if order.installments and all(
+                    inst.status == InstallmentStatus.PAID 
+                    for inst in order.installments
+                ):
+                    order.status = OrderStatus.COMPLETED
+                elif order.status == OrderStatus.COMPLETED:
+                    order.status = OrderStatus.ACTIVE

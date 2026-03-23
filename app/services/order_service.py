@@ -89,7 +89,7 @@ class OrderService:
             price_val = Decimal(price.replace(",", ".").strip())
             if price_val <= 0:
                 return False, "Cijena mora biti veća od 0."
-        except (ValueError, TypeError, AttributeError):
+        except (ValueError, TypeError, AttributeError, Exception):
             return False, "Neispravna cijena."
 
         if installments < 1 or installments > 10:
@@ -159,17 +159,19 @@ class OrderService:
             session.add(order)
             session.flush()  # Dohvati ID prije commita
 
-            # Generiši rate koristeći InstallmentService
-            InstallmentService.generate_for_order(order)
+            # Generiši rate koristeći InstallmentService i dodaj ih u sesiju
+            installments = InstallmentService.generate_for_order(order)
+            for inst in installments:
+                session.add(inst)
 
             session.flush()  # Osiguraj da je ID dostupan
-            
+
             # Sačuvaj ID prije nego što session zatvori
             order_id = order.id
-            
+
             # Expunge da objekat ostane upotrebljiv van sesije
             session.expunge(order)
-            
+
             return order
 
     @staticmethod
