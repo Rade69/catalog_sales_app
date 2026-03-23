@@ -21,6 +21,7 @@ from app.database.models import (
     Product,
     ProductMatchSource,
 )
+from app.dto import CampaignDTO, CampaignPriceDTO, ProductDTO, _to_campaign_dto, _to_campaign_price_dto, _to_product_dto
 from app.importers.excel_importer import (
     ExcelRow,
     ImportResult,
@@ -51,40 +52,40 @@ class CampaignService:
         start_date: date,
         end_date: date,
         note: Optional[str] = None
-    ) -> Campaign:
+    ) -> CampaignDTO:
         """
-        Kreira novu kampanju.
-        
+        Kreira novu kampanju i vraća CampaignDTO.
+
         Args:
             name: Naziv kampanje (mora biti jedinstven)
             start_date: Datum početka
             end_date: Datum završetka
             note: Opciona napomena
-        
+
         Returns:
-            Kreirana Campaign (detached - samo za čitanje osnovnih polja)
-        
+            CampaignDTO kreirane kampanje
+
         Raises:
             ValueError: Ako kampanja sa istim imenom već postoji
         """
         name = name.strip()
         if not name:
             raise ValueError("Naziv kampanje je obavezan.")
-        
+
         if start_date > end_date:
             raise ValueError("Datum početka mora biti prije datuma završetka.")
-        
+
         with session_scope() as session:
             # Provjeri da li kampanja već postoji
             existing = session.execute(
                 select(Campaign).where(Campaign.name == name)
             ).scalars().first()
-            
+
             if existing:
                 raise ValueError(
                     f"Kampanja sa nazivom '{name}' već postoji."
                 )
-            
+
             campaign = Campaign(
                 name=name,
                 start_date=start_date,
@@ -92,35 +93,28 @@ class CampaignService:
                 status=CampaignStatus.DRAFT,
                 note=note
             )
-            
+
             session.add(campaign)
             session.flush()
-            campaign_id = campaign.id
-            
-            # Return minimalni podaci prije zatvaranja sesije
-            return Campaign(
-                id=campaign_id,
-                name=name,
-                start_date=start_date,
-                end_date=end_date,
-                status=CampaignStatus.DRAFT,
-                note=note
-            )
+
+            # Vrati DTO prije zatvaranja sesije
+            return _to_campaign_dto(campaign)
 
     @staticmethod
-    def get_campaign_by_name(name: str) -> Optional[Campaign]:
+    def get_campaign_by_name(name: str) -> Optional[CampaignDTO]:
         """
-        Dohvaća kampanju po nazivu.
+        Dohvaća kampanju po nazivu i vraća CampaignDTO.
         """
         with session_scope() as session:
-            return session.execute(
+            campaign = session.execute(
                 select(Campaign).where(Campaign.name == name)
             ).scalars().first()
+            return _to_campaign_dto(campaign) if campaign else None
 
     @staticmethod
-    def list_campaigns() -> List[Campaign]:
+    def list_campaigns() -> List[CampaignDTO]:
         """
-        Vraća listu svih kampanja.
+        Vraća listu svih kampanja kao CampaignDTO.
         """
         with session_scope() as session:
             campaigns = list(
@@ -128,16 +122,12 @@ class CampaignService:
                     select(Campaign).order_by(Campaign.start_date.desc())
                 ).scalars().all()
             )
-            # Eager load za pristup van sesije
-            for c in campaigns:
-                session.expunge(c)
-            return campaigns
+            return [_to_campaign_dto(c) for c in campaigns]
 
     @staticmethod
-    def list_campaign_products(campaign_id: int) -> List[CampaignPrice]:
+    def list_campaign_products(campaign_id: int) -> List[CampaignPriceDTO]:
         """
-        Vraća listu CampaignPrice zapisa za datu kampanju,
-        sa eager-loadovanim Product objektom.
+        Vraća listu CampaignPriceDTO za datu kampanju.
         """
         with session_scope() as session:
             prices = list(
@@ -148,16 +138,7 @@ class CampaignService:
                     .order_by(CampaignPrice.id.asc())
                 ).scalars().all()
             )
-            # Expunge da atributi ostanu dostupni van sesije (sprečava DetachedInstanceError)
-            for cp in prices:
-                product = cp.product  # osiguraj da je učitan dok je sesija aktivna
-                session.expunge(cp)
-                if product is not None:
-                    try:
-                        session.expunge(product)
-                    except Exception:
-                        pass  # već expunged
-            return prices
+            return [_to_campaign_price_dto(cp) for cp in prices]
 
     # ---------------------------------------------------------------------
     # Product matching

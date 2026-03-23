@@ -7,6 +7,7 @@ Koriste se PySide6 QIcon i QPixmap za renderovanje SVG-a.
 from PySide6.QtGui import QIcon, QPixmap, QPainter
 from PySide6.QtCore import QByteArray, Qt
 from PySide6.QtSvg import QSvgRenderer
+from PySide6.QtWidgets import QLabel
 
 
 # SVG ikonice kao stringovi

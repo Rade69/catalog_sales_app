@@ -6,20 +6,22 @@ from sqlalchemy import func, or_, select
 
 from app.database.database import session_scope
 from app.database.models import Customer
+from app.dto import CustomerDTO, _to_customer_dto
 
 
 class CustomerService:
     @staticmethod
-    def get_customer(customer_id: int) -> Optional[Customer]:
-        """Dohvaća jednog kupca po ID-u."""
+    def get_customer(customer_id: int) -> Optional[CustomerDTO]:
+        """Dohvaća jednog kupca po ID-u i vraća CustomerDTO."""
         with session_scope() as session:
             customer = session.get(Customer, customer_id)
             if customer is not None:
-                session.expunge(customer)
-            return customer
+                return _to_customer_dto(customer)
+            return None
 
     @staticmethod
-    def list_customers(search_text: str = "") -> list[Customer]:
+    def list_customers(search_text: str = "") -> list[CustomerDTO]:
+        """Vraća listu CustomerDTO objekata."""
         with session_scope() as session:
             stmt = select(Customer).order_by(Customer.full_name.asc())
             search = search_text.strip()
@@ -33,10 +35,7 @@ class CustomerService:
                     )
                 )
             customers = list(session.execute(stmt).scalars().all())
-            # Expunge za pristup van sesije
-            for c in customers:
-                session.expunge(c)
-            return customers
+            return [_to_customer_dto(c) for c in customers]
 
     @staticmethod
     def create_customer(
@@ -45,7 +44,8 @@ class CustomerService:
         city: str = "",
         address: str = "",
         note: str = "",
-    ) -> Customer:
+    ) -> CustomerDTO:
+        """Kreira novog kupca i vraća CustomerDTO."""
         full_name = full_name.strip()
         if not full_name:
             raise ValueError("Ime i prezime je obavezno.")
@@ -61,7 +61,7 @@ class CustomerService:
             session.add(customer)
             session.flush()
             session.refresh(customer)
-            return customer
+            return _to_customer_dto(customer)
 
     @staticmethod
     def update_customer(
@@ -71,7 +71,8 @@ class CustomerService:
         city: str = "",
         address: str = "",
         note: str = "",
-    ) -> Customer:
+    ) -> CustomerDTO:
+        """Ažurira kupca i vraća CustomerDTO."""
         full_name = full_name.strip()
         if not full_name:
             raise ValueError("Ime i prezime je obavezno.")
@@ -88,10 +89,11 @@ class CustomerService:
             customer.note = note.strip() or None
             session.flush()
             session.refresh(customer)
-            return customer
+            return _to_customer_dto(customer)
 
     @staticmethod
     def delete_customer(customer_id: int) -> None:
+        """Briše kupca ako nema vezanih narudžbi."""
         with session_scope() as session:
             customer = session.get(Customer, customer_id)
             if customer is None:
@@ -102,5 +104,6 @@ class CustomerService:
 
     @staticmethod
     def count_customers() -> int:
+        """Vraća ukupan broj kupaca."""
         with session_scope() as session:
             return session.execute(select(func.count()).select_from(Customer)).scalar_one()

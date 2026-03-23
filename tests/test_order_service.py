@@ -376,12 +376,12 @@ class TestOrderServiceGetOrderDetails:
     """Testovi za OrderService.get_order_details."""
 
     def test_get_existing_order(self, db, sample_order):
-        """Dohvatanje postojeće narudžbe."""
+        """Dohvatanje postojeće narudžbe kao OrderDTO."""
         order = OrderService.get_order_details(sample_order.id)
         
         assert order is not None
         assert order.id == sample_order.id
-        assert order.customer is not None
+        assert order.customer_name is not None  # DTO ima customer_name umjesto customer
         assert len(order.installments) == len(sample_order.installments)
 
     def test_get_nonexistent_order(self, db):

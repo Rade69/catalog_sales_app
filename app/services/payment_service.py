@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
-from typing import Optional
+from typing import Optional, List
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import joinedload, selectinload
 
 from app.database.database import session_scope
 from app.database.models import Campaign, Customer, Installment, InstallmentStatus, Order, OrderStatus, Payment
+from app.dto import InstallmentDTO, PaymentDTO, _to_installment_dto, _to_payment_dto
 
 TWOPLACES = Decimal('0.01')
 
@@ -18,6 +19,7 @@ def _to_decimal(value: object) -> Decimal:
 
 
 def _recalculate_installment_status(installment: Installment) -> None:
+    """Ažurira status rate na osnovu uplata."""
     paid_amount = sum((Decimal(str(payment.amount)) for payment in installment.payments), Decimal('0.00'))
     amount = Decimal(str(installment.amount))
 
@@ -35,8 +37,8 @@ def _recalculate_installment_status(installment: Installment) -> None:
         installment.status = InstallmentStatus.PENDING
 
 
-
 def _recalculate_order_status(order: Order) -> None:
+    """Ažurira status narudžbe na osnovu statusa rata."""
     if order.installments and all(inst.status == InstallmentStatus.PAID for inst in order.installments):
         order.status = OrderStatus.COMPLETED
     elif order.status == OrderStatus.COMPLETED:
@@ -45,7 +47,8 @@ def _recalculate_order_status(order: Order) -> None:
 
 class PaymentService:
     @staticmethod
-    def get_installment(installment_id: int) -> Installment:
+    def get_installment(installment_id: int) -> InstallmentDTO:
+        """Vraća InstallmentDTO sa svim podacima o rati."""
         with session_scope() as session:
             installment = session.execute(
                 select(Installment)
@@ -58,10 +61,11 @@ class PaymentService:
             ).unique().scalar_one_or_none()
             if installment is None:
                 raise ValueError('Rata nije pronađena.')
-            return installment
+            return _to_installment_dto(installment, include_order_data=True)
 
     @staticmethod
-    def create_payment(installment_id: int, amount: str | float | Decimal, payment_date: date, note: str = '') -> Payment:
+    def create_payment(installment_id: int, amount: str | float | Decimal, payment_date: date, note: str = '') -> PaymentDTO:
+        """Kreira novu uplatu i vraća PaymentDTO."""
         amount_decimal = _to_decimal(amount)
         if amount_decimal <= Decimal('0.00'):
             raise ValueError('Iznos uplate mora biti veći od 0.')
@@ -100,10 +104,11 @@ class PaymentService:
             _recalculate_order_status(installment.order)
             session.flush()
             session.refresh(payment)
-            return payment
+            return _to_payment_dto(payment)
 
     @staticmethod
     def delete_payment(payment_id: int) -> None:
+        """Briše uplatu i ažurira statuse rate i narudžbe."""
         with session_scope() as session:
             payment = session.execute(
                 select(Payment)
@@ -132,9 +137,9 @@ class PaymentService:
         filter_type: str = "overdue",
         search: str = "",
         customer_id: Optional[int] = None
-    ) -> list:
+    ) -> List[InstallmentDTO]:
         """
-        Vraća rate za prikaz u PaymentsPage.
+        Vraća listu InstallmentDTO za prikaz u PaymentsPage.
 
         filter_type:
             'overdue'  — samo rate koje kasne (due_date < danas, remaining > 0)
@@ -202,27 +207,12 @@ class PaymentService:
             stmt = stmt.order_by(Installment.due_date.asc())
 
             installments = list(session.execute(stmt).scalars().unique())
-
-            # Izračunaj paid_amount i dotakni sve relacije dok je sesija otvorena
-            for inst in installments:
-                # Dotakni relacije da bi se učitale u memoriju
-                _ = inst.order
-                if inst.order:
-                    _ = inst.order.customer
-                paid = sum(
-                    (p.amount for p in inst.payments), Decimal("0.00")
-                )
-                object.__setattr__(inst, '_paid_amount_value', paid)
-
-            # Expunge sve objekte prije zatvaranja sesije da bi expire_on_commit
-            # ne invalidirao već učitane atribute
-            session.expunge_all()
-
-            return installments
+            # Uključi denormalizovane podatke o narudžbi i kupcu
+            return [_to_installment_dto(inst, include_order_data=True) for inst in installments]
 
     @staticmethod
-    def get_installment_details(installment_id: int):
-        """Vraća detalje odabrane rate za prikaz u info panelu."""
+    def get_installment_details(installment_id: int) -> Optional[InstallmentDTO]:
+        """Vraća InstallmentDTO sa detaljima odabrane rate."""
         with session_scope() as session:
             inst = session.get(
                 Installment, installment_id,
@@ -233,18 +223,11 @@ class PaymentService:
             )
             if not inst:
                 return None
-            # Dotakni relacije dok je sesija otvorena
-            _ = inst.order
-            if inst.order:
-                _ = inst.order.customer
-            paid = sum((p.amount for p in inst.payments), Decimal("0.00"))
-            object.__setattr__(inst, '_paid_amount_value', paid)
-            session.expunge_all()
-            return inst
+            return _to_installment_dto(inst, include_order_data=True)
 
     @staticmethod
-    def get_payments_for_installment(installment_id: int) -> list:
-        """Vraća sve uplate za odabranu ratu."""
+    def get_payments_for_installment(installment_id: int) -> List[PaymentDTO]:
+        """Vraća listu PaymentDTO za odabranu ratu."""
         with session_scope() as session:
             payments = list(
                 session.execute(
@@ -253,6 +236,4 @@ class PaymentService:
                     .order_by(Payment.payment_date.desc())
                 ).scalars()
             )
-            for p in payments:
-                session.expunge(p)
-            return payments
+            return [_to_payment_dto(p) for p in payments]

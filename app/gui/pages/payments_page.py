@@ -413,48 +413,6 @@ class PaymentsPage(QWidget):
         
         self.customer_combo.blockSignals(False)
 
-
-    def _load_all_customer_installments(self, customer_id: int) -> list:
-        """
-        Učitava SVE RATE odabranog kupca (ne filtrira po statusu).
-        
-        Args:
-            customer_id: ID kupca čije rate učitavamo
-        
-        Returns:
-            Lista svih rata sortiranu po datumu dospijeća
-        """
-        from sqlalchemy import select
-        from sqlalchemy.orm import selectinload
-        from app.database.database import session_scope
-        from app.database.models import Installment, Order, Customer
-        from sqlalchemy import func
-        
-        with session_scope() as session:
-            # Učitaj sve rate za kupca
-            stmt = (
-                select(Installment)
-                .join(Order)
-                .where(Order.customer_id == customer_id)
-                .options(
-                    selectinload(Installment.order).selectinload(Order.customer),
-                    selectinload(Installment.payments),
-                )
-                .order_by(Installment.due_date.asc())
-            )
-            
-            installments = list(session.execute(stmt).scalars().unique())
-            
-            # Izračunaj paid_amount za svaku ratu
-            for inst in installments:
-                paid = sum(
-                    (p.amount for p in inst.payments), Decimal("0.00")
-                )
-                object.__setattr__(inst, '_paid_amount_value', paid)
-            
-            session.expunge_all()
-            return installments
-
     def _load_installments(self) -> None:
         """Učitava rate sa filtrima - filteri rade i kad je kupac odabran.
         
@@ -490,32 +448,30 @@ class PaymentsPage(QWidget):
         today = date.today()
 
         for i, inst in enumerate(installments):
-            # Kupac - koristi getattr da izbjegne lazy loading na detached objektu
-            order = getattr(inst, 'order', None)
-            customer = getattr(order, 'customer', None) if order else None
-            kupac = customer.full_name if customer else ""
+            # Koristi denormalizovane podatke iz DTO-a (izbjegava ORM pristup)
+            kupac = inst.order_customer_name or ""
             self.installments_table.setItem(i, 0, QTableWidgetItem(kupac))
 
             # Artikal
-            artikal = order.product_name_snapshot if order else ""
+            artikal = inst.order_product_name or ""
             self.installments_table.setItem(i, 1, QTableWidgetItem(artikal))
 
             # Vrijednost (ukupna cijena narudžbe)
-            order_value = Decimal(str(order.total_price_snapshot)) if order else Decimal("0.00")
+            order_value = inst.order_total_price
             value_item = QTableWidgetItem(f"{order_value:.2f}")
             value_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.installments_table.setItem(i, 2, value_item)
 
             # Plaćeno (ukupno uplaćeno za ovu ratu)
-            paid_total = getattr(inst, '_paid_amount_value', Decimal("0"))
-            paid_item = QTableWidgetItem(f"{Decimal(str(paid_total)):.2f}")
+            paid_total = inst.paid_amount
+            paid_item = QTableWidgetItem(f"{paid_total:.2f}")
             paid_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             if paid_total > 0:
                 paid_item.setForeground(QBrush(QColor("#059669")))
             self.installments_table.setItem(i, 3, paid_item)
 
             # Preostalo (Vrijednost - Plaćeno)
-            remaining = order_value - Decimal(str(paid_total))
+            remaining = order_value - paid_total
             remaining_item = QTableWidgetItem(f"{remaining:.2f}")
             remaining_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             if remaining > Decimal("0.01"):
@@ -525,7 +481,7 @@ class PaymentsPage(QWidget):
             self.installments_table.setItem(i, 4, remaining_item)
 
             # Rata N/M
-            total = order.installments_count if order else "?"
+            total = inst.order_installments_count or "?"
             rata_item = QTableWidgetItem(f"{inst.installment_number}/{total}")
             rata_item.setTextAlignment(Qt.AlignCenter)
             rata_item.setData(Qt.UserRole, inst.id)

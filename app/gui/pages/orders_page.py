@@ -702,7 +702,7 @@ class OrdersPage(QWidget):
         if q:
             result = [
                 o for o in result
-                if q in (o.customer.full_name if o.customer else "").lower()
+                if q in (o.customer_name or "").lower()
                 or q in o.product_name_snapshot.lower()
                 or q in (o.contract_number or "").lower()
             ]
@@ -725,7 +725,7 @@ class OrdersPage(QWidget):
             values = [
                 (str(order.id),                                            Qt.AlignCenter),
                 (contract,                                                 Qt.AlignCenter),
-                (order.customer.full_name if order.customer else "N/A",   Qt.AlignLeft),
+                (order.customer_name or "N/A",                            Qt.AlignLeft),
                 (order.product_name_snapshot,                              Qt.AlignLeft),
                 (f"{order.total_price_snapshot:.2f}",                     Qt.AlignRight),
                 (str(order.installments_count),                            Qt.AlignCenter),
@@ -868,7 +868,7 @@ class OrdersPage(QWidget):
         confirm = QMessageBox.question(
             self, "Potvrdi brisanje narudžbe",
             f"Da li sigurno želiš obrisati ovu narudžbu?\n\n"
-            f"Kupac: {order.customer.full_name if order.customer else 'N/A'}\n"
+            f"Kupac: {order.customer_name or 'N/A'}\n"
             f"Artikal: {order.product_name_snapshot}\n"
             f"{contract_info}"
             f"Ukupno: {order.total_price_snapshot:.2f} EUR — {order.installments_count} rata\n"
@@ -1008,7 +1008,7 @@ class OrdersPage(QWidget):
         info_layout.setSpacing(10)
         
         info_text = QLabel(
-            f"<b>Kupac:</b> {order.customer.full_name if order.customer else 'N/A'}<br>"
+            f"<b>Kupac:</b> {order.customer_name or 'N/A'}<br>"
             f"<b>Artikal:</b> {order.product_name_snapshot}<br>"
             f"{contract_info}"
             f"<b>Cijena:</b> {order.total_price_snapshot:.2f} EUR<br>"

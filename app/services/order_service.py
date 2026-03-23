@@ -12,13 +12,13 @@ from app.database.models import (
     CampaignStatus,
     Customer,
     Installment,
-    InstallmentStatus,
     Order,
     OrderStatus,
 )
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
+from app.dto import OrderDTO, CustomerDTO, CampaignDTO, _to_order_dto, _to_customer_dto, _to_campaign_dto
 from app.services.installment_service import InstallmentService
 
 
@@ -35,8 +35,8 @@ class OrderService:
             return campaign is not None
 
     @staticmethod
-    def list_customers(search_text: str = "") -> List[Customer]:
-        """Vraća listu kupaca za dropdown."""
+    def list_customers(search_text: str = "") -> List[CustomerDTO]:
+        """Vraća listu CustomerDTO za dropdown."""
         from sqlalchemy import or_
 
         with session_scope() as session:
@@ -52,21 +52,18 @@ class OrderService:
                     )
                 )
             customers = list(session.execute(stmt).scalars().all())
-            # Expunge za pristup van sesije
-            for c in customers:
-                session.expunge(c)
-            return customers
+            return [_to_customer_dto(c) for c in customers]
 
     @staticmethod
-    def get_default_campaign() -> Optional[Campaign]:
-        """Vraća prvu aktivnu kampanju ili bilo koju kampanju."""
+    def get_default_campaign() -> Optional[CampaignDTO]:
+        """Vraća prvu aktivnu kampanju ili bilo koju kampanju kao CampaignDTO."""
         with session_scope() as session:
             stmt = select(Campaign).where(Campaign.status == CampaignStatus.ACTIVE)
             campaign = session.execute(stmt).scalars().first()
             if not campaign:
                 stmt = select(Campaign)
                 campaign = session.execute(stmt).scalars().first()
-            return campaign
+            return _to_campaign_dto(campaign) if campaign else None
 
     @staticmethod
     def validate_order_input(
@@ -105,9 +102,9 @@ class OrderService:
         installments: int,
         campaign_id: Optional[int] = None,
         contract_number: Optional[str] = None,
-    ) -> Order:
+    ) -> OrderDTO:
         """
-        Kreira novu narudžbu sa automatski generisanim ratama.
+        Kreira novu narudžbu sa automatski generisanim ratama i vraća OrderDTO.
 
         Args:
             customer_id: ID kupca
@@ -118,7 +115,7 @@ class OrderService:
             contract_number: Broj ugovora (opciono)
 
         Returns:
-            Kreirani Order objekat
+            OrderDTO kreirane narudžbe
 
         Raises:
             ValueError: Ako validacija ne uspije
@@ -153,31 +150,26 @@ class OrderService:
                 installments_count=installments,
                 status=OrderStatus.ACTIVE,
                 first_due_date=date.today() + relativedelta(months=1),
-                contract_number=contract_number.strip() if contract_number else None,  # NOVO
+                contract_number=contract_number.strip() if contract_number else None,
             )
 
             session.add(order)
-            session.flush()  # Dohvati ID prije commita
+            session.flush()
 
             # Generiši rate koristeći InstallmentService i dodaj ih u sesiju
             installments = InstallmentService.generate_for_order(order)
             for inst in installments:
                 session.add(inst)
 
-            session.flush()  # Osiguraj da je ID dostupan
+            session.flush()
 
-            # Sačuvaj ID prije nego što session zatvori
-            order_id = order.id
-
-            # Expunge da objekat ostane upotrebljiv van sesije
-            session.expunge(order)
-
-            return order
+            # Konvertuj u DTO prije zatvaranja sesije
+            return _to_order_dto(order)
 
     @staticmethod
-    def list_orders(customer_filter: Optional[int] = None) -> List[Order]:
+    def list_orders(customer_filter: Optional[int] = None) -> List[OrderDTO]:
         """
-        Vraća listu svih narudžbi, opciono filtrirano po kupcu.
+        Vraća listu svih narudžbi kao OrderDTO, opciono filtrirano po kupcu.
         """
         with session_scope() as session:
             stmt = (
@@ -191,24 +183,12 @@ class OrderService:
             if customer_filter:
                 stmt = stmt.where(Order.customer_id == customer_filter)
             orders = list(session.execute(stmt).scalars().all())
-            for order in orders:
-                if order.customer is not None:
-                    try:
-                        session.expunge(order.customer)
-                    except Exception:
-                        pass
-                for inst in list(order.installments):
-                    try:
-                        session.expunge(inst)
-                    except Exception:
-                        pass
-                session.expunge(order)
-            return orders
+            return [_to_order_dto(order, include_installment_order_data=True) for order in orders]
 
     @staticmethod
-    def get_order_details(order_id: int) -> Optional[Order]:
+    def get_order_details(order_id: int) -> Optional[OrderDTO]:
         """
-        Vraća detalje narudžbe sa ratama.
+        Vraća detalje narudžbe sa ratama kao OrderDTO.
         """
         with session_scope() as session:
             stmt = (
@@ -220,16 +200,10 @@ class OrderService:
                 .where(Order.id == order_id)
             )
             order = session.execute(stmt).unique().scalar_one_or_none()
-            
+
             if order is not None:
-                # Expunge da objekat ostane upotrebljiv van sesije
-                if order.customer is not None:
-                    session.expunge(order.customer)
-                for inst in list(order.installments):
-                    session.expunge(inst)
-                session.expunge(order)
-            
-            return order
+                return _to_order_dto(order, include_installment_order_data=True)
+            return None
 
     @staticmethod
     def delete_order(order_id: int) -> bool:
@@ -265,11 +239,10 @@ class OrderService:
             return True
 
     @staticmethod
-    def get_orders_for_customer(customer_id: int) -> List[Order]:
+    def get_orders_for_customer(customer_id: int) -> List[OrderDTO]:
         """
-        Vraća sve narudžbe za odabranog kupca,
+        Vraća sve narudžbe za odabranog kupca kao OrderDTO,
         sortirano od najnovije ka najstarijoj.
-        Učitava: installments → payments (potrebno za izračun preostalog iznosa).
         """
         with session_scope() as session:
             stmt = (
@@ -281,28 +254,13 @@ class OrderService:
                 .order_by(Order.order_date.desc())
             )
             orders = list(session.execute(stmt).scalars().all())
-            for order in orders:
-                for inst in list(order.installments):
-                    for pay in list(inst.payments):
-                        try:
-                            session.expunge(pay)
-                        except Exception:
-                            pass
-                    try:
-                        session.expunge(inst)
-                    except Exception:
-                        pass
-                try:
-                    session.expunge(order)
-                except Exception:
-                    pass
-            return orders
+            return [_to_order_dto(order, include_installment_order_data=True) for order in orders]
 
     @staticmethod
     def update_contract_number(order_id: int, contract_number: Optional[str]) -> None:
         """
         Ažurira broj ugovora za narudžbu.
-        
+
         Args:
             order_id: ID narudžbe
             contract_number: Novi broj ugovora (ili None za brisanje)

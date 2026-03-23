@@ -9,6 +9,7 @@ from sqlalchemy import select
 
 from app.database.database import session_scope
 from app.database.models import PriceList, PriceListItem
+from app.dto import PriceListItemDTO, _to_price_list_item_dto
 from app.importers.excel_importer import _detect_header_row
 
 
@@ -86,19 +87,18 @@ class PriceListService:
     @staticmethod
     def list_all() -> list[PriceList]:
         """Vraća listu svih cjenovnika, od najnovijeg."""
+        # Ova metoda se koristi samo za dohvat osnovnih podataka o cjenovnicima
+        # Nema potrebe za DTO jer se koristi interno
         with session_scope() as session:
-            price_lists = list(
+            return list(
                 session.execute(
                     select(PriceList).order_by(PriceList.created_at.desc())
                 ).scalars()
             )
-            for pl in price_lists:
-                session.expunge(pl)
-            return price_lists
 
     @staticmethod
-    def get_items(price_list_id: int) -> list[PriceListItem]:
-        """Vraća stavke cjenovnika, u originalnom redoslijedu."""
+    def get_items(price_list_id: int) -> list[PriceListItemDTO]:
+        """Vraća stavke cjenovnika kao PriceListItemDTO."""
         with session_scope() as session:
             items = list(
                 session.execute(
@@ -107,9 +107,7 @@ class PriceListService:
                     .order_by(PriceListItem.row_number.asc(), PriceListItem.id.asc())
                 ).scalars()
             )
-            for item in items:
-                session.expunge(item)
-            return items
+            return [_to_price_list_item_dto(item) for item in items]
 
     @staticmethod
     def import_from_excel(name: str, excel_path: str) -> tuple[int, int]:

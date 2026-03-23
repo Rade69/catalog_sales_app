@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date as date_type
+from decimal import Decimal
 from typing import Optional
 
 from PySide6.QtCore import Qt, Signal
@@ -304,9 +306,7 @@ class CustomersPage(QWidget):
                 self.customers_table.selectRow(row)
 
     def _load_orders_for_customer(self, customer_id: int) -> None:
-        from datetime import date as date_type
-        from decimal import Decimal
-
+        """Učitava narudžbe za kupca koristeći DTO objekte."""
         orders = OrderService.get_orders_for_customer(customer_id)
 
         if not orders:
@@ -315,8 +315,6 @@ class CustomersPage(QWidget):
 
         self.orders_table.setRowCount(0)
         self.orders_table.setRowCount(len(orders))
-
-        today = date_type.today()
 
         for row, order in enumerate(orders):
             status_raw = (
@@ -328,7 +326,7 @@ class CustomersPage(QWidget):
                 "cancelled": "Otkazana",
             }.get(status_raw, status_raw)
 
-            # --- Izračuni iz rata i uplata ---
+            # --- Izračuni iz DTO-a (već izračunato u service-u) ---
             installments = order.installments or []
             total_inst   = len(installments)
 
@@ -338,22 +336,16 @@ class CustomersPage(QWidget):
                 if (i.status.value if hasattr(i.status, "value") else str(i.status)) == "paid"
             )
 
-            # Ukupno uplaćeno EUR (suma svih payment.amount)
-            total_paid = sum(
-                (
-                    sum(p.amount for p in i.payments)
-                    for i in installments
-                ),
-                Decimal("0.00"),
-            )
+            # Ukupno uplaćeno EUR - koristi paid_amount iz DTO-a
+            total_paid = sum(i.paid_amount for i in installments)
             preostalo = max(Decimal("0.00"), order.total_price_snapshot - total_paid)
 
             # Datum posljednje rate (završetak otplate)
-            last_due = max(
-                (i.due_date for i in installments), default=None
-            )
+            last_due = None
+            if installments:
+                last_due = max((i.due_date for i in installments), default=None)
 
-            # Kasni: postoji li rata koja je overdue (rok prošao, nije plaćena)
+            # Kasni: postoji li rata koja je overdue
             kasni = any(
                 (i.status.value if hasattr(i.status, "value") else str(i.status)) == "overdue"
                 for i in installments
@@ -363,24 +355,23 @@ class CustomersPage(QWidget):
             contract = order.contract_number or f"#{order.id}"
 
             # --- Popunjavanje ćelija ---
-            # Kolone: 0=Br.ugov, 1=Artikal, 2=Cijena, 3=Plaćeno, 4=Preostalo, 5=Završava, 6=Kasni, 7=Status
             row_data = [
-                (contract,                                       Qt.AlignCenter),
-                (order.product_name_snapshot,                    Qt.AlignLeft),
-                (f"{order.total_price_snapshot:.2f} EUR",        Qt.AlignRight),
-                (f"{paid_count} / {total_inst}",                 Qt.AlignCenter),
-                (f"{preostalo:.2f} EUR",                          Qt.AlignRight),
-                (last_due.strftime("%d.%m.%Y") if last_due else "—", Qt.AlignCenter),
-                ("⚠" if kasni else "—",                          Qt.AlignCenter),
-                (status_bs,                                      Qt.AlignCenter),
+                (contract,                                              Qt.AlignCenter),
+                (order.product_name_snapshot,                           Qt.AlignLeft),
+                (f"{order.total_price_snapshot:.2f} EUR",               Qt.AlignRight),
+                (f"{paid_count} / {total_inst}",                        Qt.AlignCenter),
+                (f"{preostalo:.2f} EUR",                               Qt.AlignRight),
+                (last_due.strftime("%d.%m.%Y") if last_due else "—",  Qt.AlignCenter),
+                ("⚠" if kasni else "—",                               Qt.AlignCenter),
+                (status_bs,                                             Qt.AlignCenter),
             ]
 
             for col, (val, align) in enumerate(row_data):
-                item = QTableWidgetItem(val)
+                item = QTableWidgetItem(str(val))
                 item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
                 item.setTextAlignment(align | Qt.AlignVCenter)
 
-                # Br. ugovora — plava ako je pravi broj (ne #ID)
+                # Br. ugovora — plava ako je pravi broj
                 if col == 0 and order.contract_number:
                     item.setForeground(QColor("#1d4ed8"))
                     font = QFont()

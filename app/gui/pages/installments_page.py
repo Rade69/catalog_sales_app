@@ -311,19 +311,21 @@ class InstallmentsPage(QWidget):
         self.table.setRowCount(len(installments))
 
         for row, inst in enumerate(installments):
-            order = inst.order
-            customer = order.customer if order else None
+            # Koristi denormalizovane podatke iz DTO-a (izbjegava ORM pristup)
+            customer_name = inst.order_customer_name or "N/A"
+            product_name = inst.order_product_name or "N/A"
+            installments_count = inst.order_installments_count or "?"
 
-            paid = getattr(inst, "_paid_amount_value", Decimal("0.00"))
-            remaining = Decimal(str(inst.amount)) - Decimal(str(paid))
+            paid = inst.paid_amount
+            remaining = inst.amount - paid
             remaining = max(remaining, Decimal("0.00"))
             status = inst.status.value if hasattr(inst.status, "value") else str(inst.status)
 
             # Podaci
             vals = [
-                customer.full_name if customer else "N/A",
-                order.product_name_snapshot if order else "N/A",
-                f"{inst.installment_number}/{order.installments_count if order else '?'}",
+                customer_name,
+                product_name,
+                f"{inst.installment_number}/{installments_count}",
                 inst.due_date.strftime("%d.%m.%Y"),
                 f"{inst.amount:.2f}",
                 f"{paid:.2f}",
@@ -389,10 +391,13 @@ class InstallmentsPage(QWidget):
         if not inst:
             return
 
-        order = inst.order
-        customer = order.customer if order else None
-        paid = getattr(inst, "_paid_amount_value", Decimal("0.00"))
-        remaining = max(Decimal(str(inst.amount)) - Decimal(str(paid)), Decimal("0.00"))
+        # Koristi denormalizovane podatke iz DTO-a
+        customer_name = inst.order_customer_name or "N/A"
+        product_name = inst.order_product_name or "N/A"
+        installments_count = inst.order_installments_count or 0
+
+        paid = inst.paid_amount
+        remaining = max(inst.amount - paid, Decimal("0.00"))
         status = inst.status.value if hasattr(inst.status, "value") else str(inst.status)
 
         # Prikaži widgete
@@ -401,11 +406,11 @@ class InstallmentsPage(QWidget):
                   self.lbl_dospijeće, self.lbl_status_badge, self.amounts_frame]:
             w.show()
 
-        self.lbl_kupac.setText(customer.full_name if customer else "N/A")
-        self.lbl_artikal.setText(order.product_name_snapshot if order else "N/A")
-        if order:
+        self.lbl_kupac.setText(customer_name)
+        self.lbl_artikal.setText(product_name)
+        if installments_count:
             self.lbl_rata_broj.setText(
-                f"Rata {inst.installment_number} od {order.installments_count}"
+                f"Rata {inst.installment_number} od {installments_count}"
             )
         self.lbl_dospijeće.setText(f"Dospijeće: {inst.due_date.strftime('%d.%m.%Y.')}")
 

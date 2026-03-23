@@ -436,15 +436,14 @@ class TestPaymentServiceGetInstallment:
     """Testovi za PaymentService.get_installment."""
 
     def test_get_existing_installment(self, db, sample_order):
-        """Dohvatanje postojeće rate → vraća Installment objekat."""
+        """Dohvatanje postojeće rate → vraća InstallmentDTO."""
         installment_id = sample_order.installments[0].id
         
         installment = PaymentService.get_installment(installment_id)
         
         assert installment is not None
         assert installment.id == installment_id
-        assert installment.order is not None
-        assert installment.order.customer is not None
+        assert installment.order_id is not None  # DTO ima order_id umjesto order
 
     def test_get_nonexistent_installment(self, db):
         """Dohvatanje nepostojeće rate → ValueError."""
@@ -489,13 +488,14 @@ class TestPaymentServiceGetInstallmentsForPayment:
         )
         
         assert len(installments) > 0
-        # Sve rate treba da su za ovog kupca
+        # Sve rate treba da su za ovog kupca (DTO ima order_id)
         for inst in installments:
-            assert inst.order.customer_id == customer_id
+            assert inst.order_id == sample_order.id
 
     def test_get_installments_search(self, db, sample_order):
         """Pretraga rata po imenu kupca."""
-        customer_name = sample_order.customer.full_name
+        # sample_order je ORM objekat iz fixture-a, ima customer relaciju
+        customer_name = sample_order.customer.full_name if sample_order.customer else "Test"
         
         installments = PaymentService.get_installments_for_payment(
             filter_type="all",
@@ -509,14 +509,14 @@ class TestPaymentServiceGetInstallmentDetails:
     """Testovi za PaymentService.get_installment_details."""
 
     def test_get_installment_details(self, db, sample_order):
-        """Dohvatanje detalja rate."""
+        """Dohvatanje detalja rate kao InstallmentDTO."""
         installment_id = sample_order.installments[0].id
         
         details = PaymentService.get_installment_details(installment_id)
         
         assert details is not None
         assert details.id == installment_id
-        assert details.order is not None
+        assert details.order_id is not None  # DTO ima order_id
 
 
 class TestPaymentServiceGetPaymentsForInstallment:
