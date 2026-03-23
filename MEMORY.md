@@ -2,11 +2,132 @@
 
 ## Verzije
 
+- **v0.29** (2026-03-23) - DTO (Data Transfer Objects) umjesto session.expunge() pattern
 - **v0.28** (2026-03-23) - Unit testovi za servise (77 testova, 91% coverage)
 - **v0.27** - App ikonica (katalog + EUR znak)
 - **v0.26** - Logiranje, auto-backup, Settings, macOS packaging
 - **v0.25** (2026-03-13) - Svi iznosi u EUR, parser ispravan, uplate pojednostavljene
 - **v0.24** - Dashboard period filter uklonjen, CustomersPage fix extra query, SQLite WAL mode
+
+---
+
+## v0.29 - DTO (DATA TRANSFER OBJECTS)
+
+### Problem
+Korišten je krhki `session.expunge()` pattern širom servisa:
+```python
+for order in orders:
+    for inst in order.installments:
+        session.expunge(inst)
+    session.expunge(order)
+```
+Svaki novi relationship koji nije expunge-ovan uzrokovao je `DetachedInstanceError`.
+
+### Rješenje
+Uvedeni DTO (Data Transfer Object) dataclasses koji kopiraju podatke iz ORM objekata **unutar** `session_scope()` bloka, prije zatvaranja sesije.
+
+### 📁 app/dto.py (NOVI FAJL)
+
+**DTO klase:**
+- `CustomerDTO`: id, full_name, phone, city, address, note, is_active
+- `ProductDTO`: id, name, normalized_name, brand, model, supplier_code, category, ...
+- `CampaignDTO`: id, name, start_date, end_date, status, source_excel_filename, note
+- `InstallmentDTO`: id, order_id, installment_number, due_date, amount, status, paid_at, note, **paid_amount**, **remaining_amount**
+- `PaymentDTO`: id, installment_id, payment_date, amount, note
+- `OrderDTO`: id, customer_id, **customer_name** (denormalizovano), campaign_id, order_date, status, product_name_snapshot, ..., installments: list[InstallmentDTO]
+- `PriceListItemDTO`: id, price_list_id, row_number, supplier_code, name, brand, supplier, prices, points, status
+- `CampaignPriceDTO`: id, campaign_id, product_id, regular_price, discount_price, points, status_label
+
+**Helper funkcije:**
+- `_to_customer_dto()`, `_to_product_dto()`, `_to_campaign_dto()`
+- `_to_installment_dto()` - automatski računa paid_amount i remaining_amount
+- `_to_payment_dto()`, `_to_order_dto()` - konvertuje i ugniježđene installments
+- `_to_price_list_item_dto()`, `_to_campaign_price_dto()`
+
+### 🔧 Ažurirani Servisi
+
+**customer_service.py:**
+```python
+def list_customers() -> list[CustomerDTO]  # umjesto list[Customer]
+def get_customer() -> Optional[CustomerDTO]
+def create_customer() -> CustomerDTO
+def update_customer() -> CustomerDTO
+```
+
+**order_service.py:**
+```python
+def list_orders() -> List[OrderDTO]  # umjesto List[Order]
+def get_order_details() -> Optional[OrderDTO]
+def create_order() -> OrderDTO  # vraća DTO sa već generisanim ratama
+def get_orders_for_customer() -> List[OrderDTO]
+```
+
+**payment_service.py:**
+```python
+def get_installment() -> InstallmentDTO
+def create_payment() -> PaymentDTO
+def get_installments_for_payment() -> List[InstallmentDTO]
+def get_installment_details() -> Optional[InstallmentDTO]
+def get_payments_for_installment() -> List[PaymentDTO]
+```
+
+**campaign_service.py:**
+```python
+def list_campaigns() -> List[CampaignDTO]
+def get_campaign_by_name() -> Optional[CampaignDTO]
+def create_campaign() -> CampaignDTO
+def list_campaign_products() -> List[CampaignPriceDTO]
+```
+
+**price_list_service.py:**
+```python
+def get_items() -> list[PriceListItemDTO]
+```
+
+### 🎯 Prednosti
+
+1. **Nema više `DetachedInstanceError`** - podaci su kopirani u obične klase
+2. **Nema manualnog `session.expunge()`** - čišći kod
+3. **Izračunate vrijednosti u DTO** - `InstallmentDTO.paid_amount` i `remaining_amount` se računaju jednom u servisu
+4. **Denormalizacija** - `OrderDTO.customer_name` umjesto `order.customer.full_name` (N+1 fix)
+5. **Lakše testiranje** - DTO su obične dataclasses, ne ORM objekti
+6. **GUI ne zavisi od SQLAlchemy** - GUI radi sa DTO, ne sa ORM modelima
+
+### 📝 Promjene u GUI-u
+
+Sve stranice sada rade sa DTO:
+
+```python
+# Prije (ORM):
+order = OrderService.get_order_details(id)
+name = order.customer.full_name  # može biti DetachedInstanceError
+
+# Poslije (DTO):
+order = OrderService.get_order_details(id)  # vraća OrderDTO
+name = order.customer_name  # običan string, uvijek dostupan
+```
+
+**Ažurirane stranice:**
+- `customers_page.py`: koristi `OrderDTO.customer_name` i `OrderDTO.installments`
+- `orders_page.py`: koristi `OrderDTO` i `CampaignDTO`
+- `payments_page.py`: koristi `InstallmentDTO` (sa paid_amount, remaining_amount)
+- `installments_page.py`: koristi `InstallmentDTO`
+
+### 🧪 Testovi
+
+Ažurirani testovi da rade sa DTO:
+- `test_order_service.py`: `test_get_existing_order` koristi `order.customer_name`
+- `test_payment_service.py`: `test_get_existing_installment` koristi `installment.order_id`
+
+Svih 77 testova prolazi.
+
+### 📊 Statistika
+
+```
+app/dto.py                 +220 linija (novo)
+app/services/*.py          -100 linija (uklonjeni expunge)
+app/gui/pages/*.py         -50 linija (pojednostavljeno)
+```
 
 ---
 
