@@ -1270,9 +1270,10 @@ QLabel[sectionTitle="true"] {
 
 /* Hint Label */
 QLabel[hint="true"] {
-    color: #6b7280;
+    color: #9ca3af;
     font-size: 12px;
     font-style: italic;
+    padding: 8px 0;
 }
 
 /* Filter Label */

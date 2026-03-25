@@ -125,9 +125,7 @@ class CampaignsPage(QWidget):
 
         # Loading label (skriven dok se ne učitava)
         self._loading_label = QLabel("Učitavanje kampanja...")
-        self._loading_label.setStyleSheet(
-            "color: #6b7280; font-size: 13px; font-style: italic; padding: 4px;"
-        )
+        self._loading_label.setProperty("loading", True)
         self._loading_label.hide()
         layout.addWidget(self._loading_label)
 
@@ -168,14 +166,14 @@ class CampaignsPage(QWidget):
         header_row.addStretch(1)
 
         self.products_count_label = QLabel("")
-        self.products_count_label.setStyleSheet("color: #6b7280; font-size: 12px;")
+        self.products_count_label.setProperty("countLabel", True)
         header_row.addWidget(self.products_count_label)
 
         layout.addLayout(header_row)
 
         # Hint label
         self.products_hint = QLabel("← Odaberi kampanju iz liste da vidiš proizvode")
-        self.products_hint.setStyleSheet("color: #9ca3af; font-style: italic; padding: 8px 0;")
+        self.products_hint.setProperty("hint", True)
         layout.addWidget(self.products_hint)
 
         # Pretraga
