@@ -400,6 +400,187 @@ QLabel[excelFile="true"][excelFileSelected="true"] {
     font-weight: bold;
 }
 
+/* Orders Page Tabs */
+QTabWidget[ordersTabs="true"]::pane {
+    border: none;
+    background: transparent;
+}
+
+QTabWidget[ordersTabs="true"]::pane > QTabBar::tab {
+    background: #f1f5f9;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+    border-bottom: none;
+    padding: 10px 28px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-right: 2px;
+    border-radius: 6px 6px 0 0;
+}
+
+QTabWidget[ordersTabs="true"]::pane > QTabBar::tab:selected {
+    background: #ffffff;
+    color: #111827;
+    border-bottom: 2px solid #059669;
+}
+
+QTabWidget[ordersTabs="true"]::pane > QTabBar::tab:hover:!selected {
+    background: #e2e8f0;
+    color: #374151;
+}
+
+/* Source Frame */
+QFrame[sourceFrame="true"] {
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+}
+
+/* Form Label */
+QLabel[formLabel="true"] {
+    font-weight: 600;
+    color: #374151;
+    border: none;
+}
+
+/* Inline Radio Button */
+QRadioButton[inlineRadio="true"] {
+    border: none;
+}
+
+/* Save Button */
+QPushButton[saveBtn="true"] {
+    background: #059669;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 14px;
+    min-height: 44px;
+}
+
+QPushButton[saveBtn="true"]:hover {
+    background: #047857;
+}
+
+QPushButton[saveBtn="true"]:pressed {
+    background: #065f46;
+}
+
+/* Articles Table */
+QTableWidget[articlesTable="true"] {
+    font-size: 13px;
+}
+
+QTableWidget[articlesTable="true"]::item {
+    padding: 6px 8px;
+}
+
+QTableWidget[articlesTable="true"]::item:selected {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+/* Delete Orders Button */
+QPushButton[deleteOrdersBtn="true"] {
+    background: #fee2e2;
+    color: #dc2626;
+    border: 1px solid #fca5a5;
+    border-radius: 8px;
+    font-weight: 700;
+    padding: 0 16px;
+    min-height: 36px;
+}
+
+QPushButton[deleteOrdersBtn="true"]:hover {
+    background: #fecaca;
+}
+
+QPushButton[deleteOrdersBtn="true"]:disabled {
+    background: #f9fafb;
+    color: #d1d5db;
+    border-color: #e5e7eb;
+}
+
+/* Orders Table */
+QTableWidget[ordersTable="true"] {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    gridline-color: #eef2f7;
+    font-size: 16px;
+}
+
+QTableWidget[ordersTable="true"]::item {
+    padding: 8px;
+    color: #1f2937;
+    background-color: transparent;
+}
+
+QTableWidget[ordersTable="true"]::item:alternate {
+    background-color: #f9fafb;
+}
+
+QTableWidget[ordersTable="true"]::item:hover {
+    background-color: #f3f4f6;
+}
+
+QTableWidget[ordersTable="true"]::item:selected {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+/* Dialog Styles */
+QLabel[dialogTitle="true"] {
+    font-weight: 800;
+    color: #111827;
+}
+
+QFrame[infoFrame="true"] {
+    background: #f9fafb;
+    border-radius: 10px;
+    padding: 16px;
+}
+
+QLabel[infoText="true"] {
+    color: #1f2937;
+}
+
+QLabel[dialogSectionTitle="true"] {
+    font-weight: 700;
+    color: #111827;
+    margin-top: 10px;
+}
+
+QTableWidget[dialogTable="true"] {
+    font-size: 18px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+}
+
+QTableWidget[dialogTable="true"]::item {
+    padding: 10px;
+}
+
+QTableWidget[dialogTable="true"]::indicator {
+    background: #e5e7eb;
+}
+
+QPushButton[dialogCloseBtn="true"] {
+    background: #2563eb;
+    color: white;
+    font-size: 18px;
+    font-weight: 700;
+    padding: 14px 40px;
+    border-radius: 10px;
+    min-height: 50px;
+}
+
+QPushButton[dialogCloseBtn="true"]:hover {
+    background: #1d4ed8;
+}
+
 
 /* --------------------------------------------------------------------------
    TABLES

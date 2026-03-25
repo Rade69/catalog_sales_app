@@ -1,2 +1,3 @@
 ## Qwen Added Memories
 - Project catalog_sales_app: v0.30 implementira QThread workere za background DB operacije (UI se ne zamrzava) i Alembic za schema migracije. Workeri: LoadDashboardWorker, LoadCustomersWorker, LoadOrdersWorker, LoadInstallmentsWorker, LoadPaymentsWorker, LoadCampaignsWorker, LoadCampaignProductsWorker. Svi DB upiti su na background threadovima osim kratkih write operacija.
+- Project catalog_sales_app: v0.31 - QSS refaktoriranje u toku. customers_page.py i price_list_page.py refaktorirani (6→0 i 10→1 setStyleSheet). Preostali: orders_page.py (27), dashboard_page.py (20), payments_page.py (16), installments_page.py (13), campaigns_page.py (9).

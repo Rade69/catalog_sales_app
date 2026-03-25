@@ -86,32 +86,7 @@ class OrdersPage(QWidget):
         root.setSpacing(0)
 
         self._tabs = QTabWidget()
-        self._tabs.setStyleSheet("""
-            QTabWidget::pane {
-                border: none;
-                background: transparent;
-            }
-            QTabBar::tab {
-                background: #f1f5f9;
-                color: #64748b;
-                border: 1px solid #e2e8f0;
-                border-bottom: none;
-                padding: 10px 28px;
-                font-size: 13px;
-                font-weight: 600;
-                margin-right: 2px;
-                border-radius: 6px 6px 0 0;
-            }
-            QTabBar::tab:selected {
-                background: #ffffff;
-                color: #111827;
-                border-bottom: 2px solid #059669;
-            }
-            QTabBar::tab:hover:!selected {
-                background: #e2e8f0;
-                color: #374151;
-            }
-        """)
+        self._tabs.setProperty("ordersTabs", True)
 
         self._tabs.addTab(self._build_new_order_tab(), "  ＋  Nova narudžba  ")
         self._tabs.addTab(self._build_orders_tab(), "  📋  Pregled narudžbi  ")
@@ -139,20 +114,13 @@ class OrdersPage(QWidget):
             "(nacrt/arhivirana). Preporučuje se aktivirati kampanju prije unosa narudžbi."
         )
         self.campaign_warning.setWordWrap(True)
-        self.campaign_warning.setStyleSheet("""
-            QLabel {
-                background-color: #fffbeb; color: #92400e;
-                border: 1px solid #fcd34d; border-radius: 6px;
-                padding: 10px 14px; font-size: 13px; margin: 8px;
-            }
-        """)
+        self.campaign_warning.setProperty("statusBanner", "warning")
         self.campaign_warning.hide()
         layout.addWidget(self.campaign_warning)
 
         # Horizontalni splitter: forma | artikli
         h_splitter = QSplitter(Qt.Horizontal)
-        h_splitter.setHandleWidth(4)
-        h_splitter.setStyleSheet("QSplitter::handle { background: #e5e7eb; }")
+        h_splitter.setProperty("cardSplitter", True)
         h_splitter.addWidget(self._build_form_panel())
         h_splitter.addWidget(self._build_articles_panel())
         h_splitter.setSizes([400, 900])
@@ -178,18 +146,16 @@ class OrdersPage(QWidget):
 
         # Izvor artikala
         source_frame = QFrame()
-        source_frame.setStyleSheet(
-            "QFrame { background:#f8fafc; border:1px solid #e5e7eb; border-radius:6px; }"
-        )
+        source_frame.setProperty("sourceFrame", True)
         sf_layout = QHBoxLayout(source_frame)
         sf_layout.setContentsMargins(12, 8, 12, 8)
         sf_lbl = QLabel("Naruči iz:")
-        sf_lbl.setStyleSheet("font-weight:600; color:#374151; border:none;")
+        sf_lbl.setProperty("formLabel", True)
         self.radio_campaign  = QRadioButton("Pogodnosti")
         self.radio_pricelist = QRadioButton("Cjenovnika")
         self.radio_campaign.setChecked(True)
-        self.radio_campaign.setStyleSheet("border:none;")
-        self.radio_pricelist.setStyleSheet("border:none;")
+        self.radio_campaign.setProperty("inlineRadio", True)
+        self.radio_pricelist.setProperty("inlineRadio", True)
         self._radio_group = QButtonGroup(self)
         self._radio_group.addButton(self.radio_campaign,  0)
         self._radio_group.addButton(self.radio_pricelist, 1)
@@ -232,32 +198,17 @@ class OrdersPage(QWidget):
         # ---- Preview narudžbe ----
         preview_frame = QFrame()
         preview_frame.setMinimumHeight(90)
-        preview_frame.setStyleSheet("""
-            QFrame {
-                background: #f0fdf4;
-                border: 2px solid #059669;
-                border-radius: 10px;
-                margin-top: 4px;
-            }
-        """)
+        preview_frame.setProperty("preview", True)
         pv = QVBoxLayout(preview_frame)
         pv.setContentsMargins(16, 12, 16, 12)
         pv.setSpacing(6)
 
         pv_title = QLabel("Pregled narudžbe")
-        pv_title.setStyleSheet(
-            "color:#059669; font-size:11px; font-weight:700; "
-            "letter-spacing:0.05em; border:none; background:transparent;"
-        )
+        pv_title.setProperty("previewTitle", True)
         self.preview_total_label = QLabel("Ukupno: 0.00 EUR")
-        self.preview_total_label.setStyleSheet(
-            "font-size:18px; font-weight:800; color:#111827; "
-            "border:none; background:transparent;"
-        )
+        self.preview_total_label.setProperty("previewTotal", True)
         self.preview_installment_label = QLabel("10 × 0.00 EUR po rati")
-        self.preview_installment_label.setStyleSheet(
-            "font-size:13px; color:#374151; border:none; background:transparent;"
-        )
+        self.preview_installment_label.setProperty("previewInstallment", True)
 
         pv.addWidget(pv_title)
         pv.addWidget(self.preview_total_label)
@@ -269,14 +220,7 @@ class OrdersPage(QWidget):
         # Dugmad
         self.save_btn = QPushButton("💾  Sačuvaj narudžbu")
         self.save_btn.setMinimumHeight(44)
-        self.save_btn.setStyleSheet("""
-            QPushButton {
-                background:#059669; color:white; border:none;
-                border-radius:8px; font-weight:700; font-size:14px;
-            }
-            QPushButton:hover  { background:#047857; }
-            QPushButton:pressed { background:#065f46; }
-        """)
+        self.save_btn.setProperty("saveBtn", True)
         layout.addWidget(self.save_btn)
 
         self.clear_btn = QPushButton("Očisti formu")
@@ -346,11 +290,7 @@ class OrdersPage(QWidget):
         self.articles_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.articles_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.articles_table.setAlternatingRowColors(True)
-        self.articles_table.setStyleSheet("""
-            QTableWidget { font-size:13px; }
-            QTableWidget::item { padding:6px 8px; }
-            QTableWidget::item:selected { background:#dbeafe; color:#1d4ed8; }
-        """)
+        self.articles_table.setProperty("articlesTable", True)
         self.articles_table.itemClicked.connect(self._on_article_clicked)
         layout.addWidget(self.articles_table, 1)
 
@@ -392,17 +332,7 @@ class OrdersPage(QWidget):
         self.delete_btn = QPushButton("🗑  Obriši odabranu")
         self.delete_btn.setMinimumHeight(36)
         self.delete_btn.setEnabled(False)
-        self.delete_btn.setStyleSheet("""
-            QPushButton {
-                background:#fee2e2; color:#dc2626;
-                border:1px solid #fca5a5; border-radius:8px; font-weight:700;
-                padding: 0 16px;
-            }
-            QPushButton:hover { background:#fecaca; }
-            QPushButton:disabled {
-                background:#f9fafb; color:#d1d5db; border-color:#e5e7eb;
-            }
-        """)
+        self.delete_btn.setProperty("deleteOrdersBtn", True)
         self.delete_btn.clicked.connect(self._delete_selected_order)
 
         filter_row.addWidget(self.orders_search, 1)
@@ -412,9 +342,7 @@ class OrdersPage(QWidget):
 
         # Loading label (skriven dok se ne učitava)
         self._loading_label = QLabel("Učitavanje narudžbi...")
-        self._loading_label.setStyleSheet(
-            "color: #6b7280; font-size: 14px; font-style: italic; padding: 8px;"
-        )
+        self._loading_label.setProperty("loading", True)
         self._loading_label.hide()
         panel_layout.addWidget(self._loading_label)
 
@@ -436,36 +364,7 @@ class OrdersPage(QWidget):
         style_table(self.table)
         # Inline editovanje je onemogućeno — koristimo custom dialog za Br. ugovora
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.table.setStyleSheet("""
-            QTableWidget {
-                background: white;
-                border: 1px solid #e5e7eb;
-                border-radius: 16px;
-                gridline-color: #eef2f7;
-                font-size: 16px;
-            }
-            QTableWidget::item {
-                padding: 8px;
-                color: #1f2937;
-                background-color: transparent;
-            }
-            QTableWidget::item:alternate {
-                background-color: #f9fafb;
-            }
-            QTableWidget::item:hover {
-                background-color: #f3f4f6;
-            }
-            QTableWidget::item:selected {
-                background-color: #dbeafe;
-                color: #1e40af;
-            }
-            QLineEdit {
-                font-size: 16px;
-                padding: 4px 8px;
-                border: 2px solid #2563eb;
-                border-radius: 4px;
-            }
-        """)
+        self.table.setProperty("ordersTable", True)
         self.table.doubleClicked.connect(self._on_table_double_clicked)
         self.table.itemSelectionChanged.connect(self._on_order_selected)
         panel_layout.addWidget(self.table, 1)
@@ -1047,16 +946,16 @@ class OrdersPage(QWidget):
         # Naslov
         _QFont = QFont
         title = QLabel(f"Narudžba #{order.id}")
-        title.setStyleSheet("font-weight: 800; color: #111827;")
+        title.setProperty("dialogTitle", True)
         _tf = _QFont(); _tf.setPointSize(20); title.setFont(_tf)
         main_layout.addWidget(title)
-        
+
         # Info sekcija
         info_frame = QFrame()
-        info_frame.setStyleSheet("background: #f9fafb; border-radius: 10px; padding: 16px;")
+        info_frame.setProperty("infoFrame", True)
         info_layout = QVBoxLayout(info_frame)
         info_layout.setSpacing(10)
-        
+
         info_text = QLabel(
             f"<b>Kupac:</b> {order.customer_name or 'N/A'}<br>"
             f"<b>Artikal:</b> {order.product_name_snapshot}<br>"
@@ -1066,15 +965,15 @@ class OrdersPage(QWidget):
             f"<b>Datum:</b> {order.order_date.strftime('%d.%m.%Y')}<br>"
             f"<b>Status:</b> <span style='color: {_ORDER_STATUS_COLOR.get(raw, "#374151")}; font-weight: 700;'>{status_bs}</span>"
         )
-        info_text.setStyleSheet("color: #1f2937;")
+        info_text.setProperty("infoText", True)
         _inf = _QFont(); _inf.setPointSize(13); info_text.setFont(_inf)
         info_text.setWordWrap(True)
         info_layout.addWidget(info_text)
         main_layout.addWidget(info_frame)
-        
+
         # Tabela rata
         rates_title = QLabel("Pregled rata:")
-        rates_title.setStyleSheet("font-weight: 700; color: #111827; margin-top: 10px;")
+        rates_title.setProperty("dialogSectionTitle", True)
         _rt = _QFont(); _rt.setPointSize(15); rates_title.setFont(_rt)
         main_layout.addWidget(rates_title)
         
@@ -1090,24 +989,7 @@ class OrdersPage(QWidget):
         rates_table.setEditTriggers(QTableWidget.NoEditTriggers)
         rates_table.setSelectionBehavior(QTableWidget.SelectRows)
         rates_table.setAlternatingRowColors(True)
-        rates_table.setStyleSheet("""
-            QTableWidget {
-                font-size: 18px;
-                background: white;
-                border: 1px solid #e5e7eb;
-                border-radius: 10px;
-            }
-            QHeaderView::section {
-                background: #e5e7eb;
-                font-size: 16px;
-                font-weight: 700;
-                padding: 12px;
-                border: none;
-            }
-            QTableWidget::item {
-                padding: 10px;
-            }
-        """)
+        rates_table.setProperty("dialogTable", True)
         
         for i, inst in enumerate(order.installments):
             inst_status = _INST_STATUS_BS.get(inst.status.value if hasattr(inst.status, "value") else str(inst.status), str(inst.status))
@@ -1136,19 +1018,7 @@ class OrdersPage(QWidget):
         
         # Dugme Zatvori
         close_btn = QPushButton("Zatvori")
-        close_btn.setStyleSheet("""
-            QPushButton {
-                background: #2563eb;
-                color: white;
-                font-size: 18px;
-                font-weight: 700;
-                padding: 14px 40px;
-                border-radius: 10px;
-            }
-            QPushButton:hover {
-                background: #1d4ed8;
-            }
-        """)
+        close_btn.setProperty("dialogCloseBtn", True)
         close_btn.setMinimumHeight(50)
         close_btn.clicked.connect(dialog.accept)
         main_layout.addWidget(close_btn)
@@ -1161,14 +1031,10 @@ class OrdersPage(QWidget):
 
     def _show_message(self, message: str, error: bool = False) -> None:
         self.message_label.setText(message)
+        self.message_label.setProperty("statusBanner", "error" if error else "success")
+        self.message_label.style().unpolish(self.message_label)
+        self.message_label.style().polish(self.message_label)
         self.message_label.show()
-        self.message_label.setStyleSheet(
-            "QLabel { background:#fef2f2; color:#dc2626; "
-            "border:1px solid #fca5a5; border-radius:6px; padding:8px; }"
-            if error else
-            "QLabel { background:#f0fdf4; color:#059669; "
-            "border:1px solid #86efac; border-radius:6px; padding:8px; }"
-        )
 
     def on_activate(self) -> None:
         self._load_source_combos()
