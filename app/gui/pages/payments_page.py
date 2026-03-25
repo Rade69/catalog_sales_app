@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 
 from app.services.payment_service import PaymentService
 from app.gui.icons import create_icon_label, get_pixmap
+from app.gui.workers import LoadInstallmentsWorker
 
 
 class PaymentsPage(QWidget):
@@ -45,6 +46,8 @@ class PaymentsPage(QWidget):
         self._selected_installment_data: Optional[dict] = None
         self._active_filter = "overdue"
         self._selected_customer_id: Optional[int] = None
+        self._worker: Optional[LoadInstallmentsWorker] = None
+        self._loading_label: Optional[QLabel] = None
         self._init_ui()
         self._load_customers()
         self._load_installments()
@@ -205,6 +208,14 @@ class PaymentsPage(QWidget):
         title = QLabel("Rate za naplatu")
         title.setProperty("sectionTitle", True)
         layout.addWidget(title)
+
+        # Loading label (skriven dok se ne učitava)
+        self._loading_label = QLabel("Učitavanje rata...")
+        self._loading_label.setStyleSheet(
+            "color: #6b7280; font-size: 13px; font-style: italic; padding: 4px;"
+        )
+        self._loading_label.hide()
+        layout.addWidget(self._loading_label)
 
         # Tabela rata
         self.installments_table = QTableWidget()
@@ -414,25 +425,52 @@ class PaymentsPage(QWidget):
         self.customer_combo.blockSignals(False)
 
     def _load_installments(self) -> None:
-        """Učitava rate sa filtrima - filteri rade i kad je kupac odabran.
-        
-        Ako je kupac odabran, automatski filtrira samo NEPLAĆENE rate.
-        """
+        """Učitava rate koristeći background worker."""
+        # Zaštita od višestrukog pokretanja
+        if self._worker and self._worker.isRunning():
+            return
+
+        # Prikaži loading
+        self._set_loading_state(True)
+
         customer_id = self.customer_combo.currentData()
         search_text = self.search_edit.text().strip()
-        
-        filter_to_use = self._active_filter
 
-        try:
-            installments = PaymentService.get_installments_for_payment(
-                filter_type=filter_to_use,
-                search=search_text,
-                customer_id=customer_id
-            )
-        except Exception:
-            installments = []
+        self._worker = LoadInstallmentsWorker(
+            filter_type=self._active_filter,
+            search=search_text,
+            customer_id=customer_id,
+        )
+        self._worker.finished.connect(self._on_installments_loaded)
+        self._worker.error.connect(self._on_installments_error)
+        self._worker.start()
 
+    def _set_loading_state(self, loading: bool) -> None:
+        """Postavlja UI u loading stanje."""
+        if loading:
+            if self._loading_label:
+                self._loading_label.show()
+            if hasattr(self, "installments_table"):
+                self.installments_table.setEnabled(False)
+        else:
+            if self._loading_label:
+                self._loading_label.hide()
+            if hasattr(self, "installments_table"):
+                self.installments_table.setEnabled(True)
+
+    def _on_installments_loaded(self, installments) -> None:
+        """Handler za završetak učitavanja rata."""
+        self._set_loading_state(False)
         self._populate_table(installments)
+
+    def _on_installments_error(self, error_msg: str) -> None:
+        """Handler za grešku prilikom učitavanja rata."""
+        self._set_loading_state(False)
+        QMessageBox.critical(
+            self,
+            "Greška pri učitavanju",
+            f"Neuspješno učitavanje rata:\n{error_msg}"
+        )
 
     def _populate_table(self, installments: list) -> None:
         self.installments_table.setRowCount(0)

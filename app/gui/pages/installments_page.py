@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 from app.gui.table_helpers import style_table
 from app.services.payment_service import PaymentService
 from app.services.customer_service import CustomerService
+from app.gui.workers import LoadInstallmentsWorker
 
 
 # Boje po statusu rate
@@ -71,6 +72,8 @@ class InstallmentsPage(QWidget):
         super().__init__()
         self._active_filter = "overdue"
         self._selected_installment_id: Optional[int] = None
+        self._worker: Optional[LoadInstallmentsWorker] = None
+        self._loading_label: Optional[QLabel] = None
 
         self._init_ui()
         self._load_customers()
@@ -161,6 +164,14 @@ class InstallmentsPage(QWidget):
         header.addStretch(1)
         header.addWidget(self.count_label)
         layout.addLayout(header)
+
+        # Loading label (skriven dok se ne učitava)
+        self._loading_label = QLabel("Učitavanje rata...")
+        self._loading_label.setStyleSheet(
+            "color: #6b7280; font-size: 13px; font-style: italic; padding: 4px;"
+        )
+        self._loading_label.hide()
+        layout.addWidget(self._loading_label)
 
         # Tabela
         self.table = QTableWidget()
@@ -283,14 +294,38 @@ class InstallmentsPage(QWidget):
         self.customer_combo.blockSignals(False)
 
     def _load_installments(self) -> None:
+        """Učitava rate koristeći background worker."""
+        # Zaštita od višestrukog pokretanja
+        if self._worker and self._worker.isRunning():
+            return
+
+        # Prikaži loading
+        self._set_loading_state(True)
+
         customer_id = self.customer_combo.currentData()
         search = self.search_edit.text().strip()
 
-        installments = PaymentService.get_installments_for_payment(
+        self._worker = LoadInstallmentsWorker(
             filter_type=self._active_filter,
             search=search,
             customer_id=customer_id,
         )
+        self._worker.finished.connect(self._on_installments_loaded)
+        self._worker.error.connect(self._on_installments_error)
+        self._worker.start()
+
+    def _set_loading_state(self, loading: bool) -> None:
+        """Postavlja UI u loading stanje."""
+        if loading:
+            self._loading_label.show()
+            self.table.setEnabled(False)
+        else:
+            self._loading_label.hide()
+            self.table.setEnabled(True)
+
+    def _on_installments_loaded(self, installments) -> None:
+        """Handler za završetak učitavanja rata."""
+        self._set_loading_state(False)
 
         # Ažuriraj naslov i brojač
         filter_labels = dict(_FILTER_TABS)
@@ -361,6 +396,15 @@ class InstallmentsPage(QWidget):
             self.table.item(row, 0).setData(Qt.UserRole, inst.id)
 
         self.table.resizeColumnsToContents()
+
+    def _on_installments_error(self, error_msg: str) -> None:
+        """Handler za grešku prilikom učitavanja rata."""
+        self._set_loading_state(False)
+        QMessageBox.critical(
+            self,
+            "Greška pri učitavanju",
+            f"Neuspješno učitavanje rata:\n{error_msg}"
+        )
 
     # ------------------------------------------------------------------
     # Akcije

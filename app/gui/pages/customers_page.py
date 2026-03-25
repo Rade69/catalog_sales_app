@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 from app.gui.table_helpers import style_table, show_empty_state
 from app.services.customer_service import CustomerService
 from app.services.order_service import OrderService
+from app.gui.workers import LoadCustomersWorker
 
 
 # Status boje za narudžbe
@@ -55,6 +56,8 @@ class CustomersPage(QWidget):
     def __init__(self) -> None:
         super().__init__()
         self._selected_customer_id: Optional[int] = None
+        self._worker: Optional[LoadCustomersWorker] = None
+        self._loading_label: Optional[QLabel] = None
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -149,6 +152,14 @@ class CustomersPage(QWidget):
         self.count_label.setStyleSheet("color: #9ca3af; font-size: 11px;")
         self.count_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.count_label)
+
+        # Loading label (skriven dok se ne učitava)
+        self._loading_label = QLabel("Učitavanje kupaca...")
+        self._loading_label.setStyleSheet(
+            "color: #6b7280; font-size: 13px; font-style: italic; padding: 4px;"
+        )
+        self._loading_label.hide()
+        layout.addWidget(self._loading_label)
 
         return panel
 
@@ -282,7 +293,35 @@ class CustomersPage(QWidget):
     # ------------------------------------------------------------------
 
     def load_customers(self) -> None:
-        customers = CustomerService.list_customers(self.search_input.text())
+        """Učitava kupce koristeći background worker."""
+        # Zaštita od višestrukog pokretanja
+        if self._worker and self._worker.isRunning():
+            return
+
+        # Prikaži loading
+        self._set_loading_state(True)
+
+        self._worker = LoadCustomersWorker(self.search_input.text())
+        self._worker.finished.connect(self._on_customers_loaded)
+        self._worker.error.connect(self._on_customers_error)
+        self._worker.start()
+
+    def _set_loading_state(self, loading: bool) -> None:
+        """Postavlja UI u loading stanje."""
+        if loading:
+            self._loading_label.show()
+            self.new_btn.setEnabled(False)
+            self.delete_btn.setEnabled(False)
+        else:
+            self._loading_label.hide()
+            self.new_btn.setEnabled(True)
+            # Restore delete button state based on selection
+            if self._selected_customer_id is not None:
+                self.delete_btn.setEnabled(True)
+
+    def _on_customers_loaded(self, customers) -> None:
+        """Handler za završetak učitavanja kupaca."""
+        self._set_loading_state(False)
 
         self.count_label.setText(f"{len(customers)} kupaca")
 
@@ -304,6 +343,15 @@ class CustomersPage(QWidget):
             # Vrati selekciju ako je isti kupac bio odabran
             if customer.id == self._selected_customer_id:
                 self.customers_table.selectRow(row)
+
+    def _on_customers_error(self, error_msg: str) -> None:
+        """Handler za grešku prilikom učitavanja kupaca."""
+        self._set_loading_state(False)
+        QMessageBox.critical(
+            self,
+            "Greška pri učitavanju",
+            f"Neuspješno učitavanje kupaca:\n{error_msg}"
+        )
 
     def _load_orders_for_customer(self, customer_id: int) -> None:
         """Učitava narudžbe za kupca koristeći DTO objekte."""

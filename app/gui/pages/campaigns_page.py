@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
@@ -20,6 +22,7 @@ from PySide6.QtWidgets import (
 from app.gui.table_helpers import style_table, create_numeric_item
 from app.services.campaign_service import CampaignService
 from app.gui.icons import create_icon_label, get_pixmap
+from app.gui.workers import LoadCampaignsWorker, LoadCampaignProductsWorker
 
 
 class CampaignsPage(QWidget):
@@ -29,6 +32,9 @@ class CampaignsPage(QWidget):
         super().__init__()
 
         self.campaign_service = CampaignService()
+        self._worker: Optional[LoadCampaignsWorker] = None
+        self._products_worker: Optional[LoadCampaignProductsWorker] = None
+        self._loading_label: Optional[QLabel] = None
 
         self._init_ui()
         self._connect_signals()
@@ -117,6 +123,14 @@ class CampaignsPage(QWidget):
 
         layout.addLayout(header_row)
 
+        # Loading label (skriven dok se ne učitava)
+        self._loading_label = QLabel("Učitavanje kampanja...")
+        self._loading_label.setStyleSheet(
+            "color: #6b7280; font-size: 13px; font-style: italic; padding: 4px;"
+        )
+        self._loading_label.hide()
+        layout.addWidget(self._loading_label)
+
         # Tabela
         self.table = QTableWidget()
         self.table.setColumnCount(4)
@@ -200,8 +214,37 @@ class CampaignsPage(QWidget):
         self.table.itemSelectionChanged.connect(self._on_campaign_selected)
 
     def _load_campaigns(self) -> None:
-        """Učitava kampanje u tabelu."""
-        campaigns = self.campaign_service.list_campaigns()
+        """Učitava kampanje koristeći background worker."""
+        # Zaštita od višestrukog pokretanja
+        if self._worker and self._worker.isRunning():
+            return
+
+        # Prikaži loading
+        self._set_loading_state(True)
+
+        self._worker = LoadCampaignsWorker()
+        self._worker.finished.connect(self._on_campaigns_loaded)
+        self._worker.error.connect(self._on_campaigns_error)
+        self._worker.start()
+
+    def _set_loading_state(self, loading: bool) -> None:
+        """Postavlja UI u loading stanje."""
+        if loading:
+            if self._loading_label:
+                self._loading_label.show()
+            if hasattr(self, "table"):
+                self.table.setEnabled(False)
+            if hasattr(self, "delete_btn"):
+                self.delete_btn.setEnabled(False)
+        else:
+            if self._loading_label:
+                self._loading_label.hide()
+            if hasattr(self, "table"):
+                self.table.setEnabled(True)
+
+    def _on_campaigns_loaded(self, campaigns) -> None:
+        """Handler za završetak učitavanja kampanja."""
+        self._set_loading_state(False)
 
         self.table.setRowCount(0)
         self.table.setRowCount(len(campaigns))
@@ -227,6 +270,15 @@ class CampaignsPage(QWidget):
 
         self.table.resizeColumnsToContents()
 
+    def _on_campaigns_error(self, error_msg: str) -> None:
+        """Handler za grešku prilikom učitavanja kampanja."""
+        self._set_loading_state(False)
+        QMessageBox.critical(
+            self,
+            "Greška pri učitavanju",
+            f"Neuspješno učitavanje kampanja:\n{error_msg}"
+        )
+
     def _on_campaign_selected(self) -> None:
         """Poziva se kad se odabere red u tabeli kampanja."""
         row = self.table.currentRow()
@@ -249,17 +301,36 @@ class CampaignsPage(QWidget):
         self.delete_btn.setEnabled(True)
 
     def _load_campaign_products(self, campaign_id: int, campaign_name: str) -> None:
-        """Učitava proizvode za odabranu kampanju u desni panel."""
-        prices = self.campaign_service.list_campaign_products(campaign_id)
+        """Učitava proizvode kampanje koristeći background worker."""
+        # Zaštita od višestrukog pokretanja
+        if self._products_worker and self._products_worker.isRunning():
+            return
 
-        self._all_product_rows = prices
+        self._products_worker = LoadCampaignProductsWorker(campaign_id)
+        self._products_worker.finished.connect(
+            lambda products: self._on_campaign_products_loaded(products, campaign_name)
+        )
+        self._products_worker.error.connect(self._on_campaign_products_error)
+        self._products_worker.start()
+
+    def _on_campaign_products_loaded(self, products, campaign_name: str) -> None:
+        """Handler za završetak učitavanja proizvoda kampanje."""
+        self._all_product_rows = products
         self.products_hint.hide()
         self.products_search.show()
         self.products_table.show()
         self.products_title.setText(f"Proizvodi — {campaign_name}")
-        self.products_count_label.setText(f"{len(prices)} proizvoda")
+        self.products_count_label.setText(f"{len(products)} proizvoda")
         self.products_search.clear()
-        self._populate_products_table(prices)
+        self._populate_products_table(products)
+
+    def _on_campaign_products_error(self, error_msg: str) -> None:
+        """Handler za grešku prilikom učitavanja proizvoda."""
+        QMessageBox.critical(
+            self,
+            "Greška pri učitavanju",
+            f"Neuspješno učitavanje proizvoda:\n{error_msg}"
+        )
 
     def _populate_products_table(self, prices: list) -> None:
         """Puni tabelu proizvoda sa listom CampaignPrice objekata."""

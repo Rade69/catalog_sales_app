@@ -30,6 +30,7 @@ from app.gui.table_helpers import style_table, show_empty_state
 from app.services.campaign_service import CampaignService
 from app.services.order_service import OrderService
 from app.services.price_list_service import PriceListService
+from app.gui.workers import LoadOrdersWorker
 
 # ------------------------------------------------------------------
 # Mape prijevoda — enum vrijednosti u bazi ostaju engleske,
@@ -77,6 +78,8 @@ class OrdersPage(QWidget):
         self._all_prices: list = []
         self._all_orders: list = []
         self._selected_order_id: Optional[int] = None
+        self._worker: Optional[LoadOrdersWorker] = None
+        self._loading_label: Optional[QLabel] = None
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -407,6 +410,14 @@ class OrdersPage(QWidget):
         filter_row.addWidget(self.delete_btn)
         panel_layout.addLayout(filter_row)
 
+        # Loading label (skriven dok se ne učitava)
+        self._loading_label = QLabel("Učitavanje narudžbi...")
+        self._loading_label.setStyleSheet(
+            "color: #6b7280; font-size: 14px; font-style: italic; padding: 8px;"
+        )
+        self._loading_label.hide()
+        panel_layout.addWidget(self._loading_label)
+
         # Tabela narudžbi
         self.table = QTableWidget(0, 8)
         self.table.setHorizontalHeaderLabels([
@@ -556,8 +567,47 @@ class OrdersPage(QWidget):
         self._check_campaign_warning()
 
     def _load_orders(self) -> None:
-        self._all_orders = OrderService.list_orders()
+        """Učitava narudžbe koristeći background worker."""
+        # Zaštita od višestrukog pokretanja
+        if self._worker and self._worker.isRunning():
+            return
+
+        # Prikaži loading
+        self._set_loading_state(True)
+
+        self._worker = LoadOrdersWorker()
+        self._worker.finished.connect(self._on_orders_loaded)
+        self._worker.error.connect(self._on_orders_error)
+        self._worker.start()
+
+    def _set_loading_state(self, loading: bool) -> None:
+        """Postavlja UI u loading stanje."""
+        if loading:
+            if self._loading_label:
+                self._loading_label.show()
+            self.delete_btn.setEnabled(False)
+            if hasattr(self, "table"):
+                self.table.setEnabled(False)
+        else:
+            if self._loading_label:
+                self._loading_label.hide()
+            if hasattr(self, "table"):
+                self.table.setEnabled(True)
+
+    def _on_orders_loaded(self, orders) -> None:
+        """Handler za završetak učitavanja narudžbi."""
+        self._set_loading_state(False)
+        self._all_orders = orders
         self._filter_orders()
+
+    def _on_orders_error(self, error_msg: str) -> None:
+        """Handler za grešku prilikom učitavanja narudžbi."""
+        self._set_loading_state(False)
+        QMessageBox.critical(
+            self,
+            "Greška pri učitavanju",
+            f"Neuspješno učitavanje narudžbi:\n{error_msg}"
+        )
 
     # ------------------------------------------------------------------
     # Izvor artikala

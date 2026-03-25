@@ -38,7 +38,16 @@ SessionLocal = sessionmaker(
 
 
 def init_db() -> None:
-    Base.metadata.create_all(bind=engine)
+    """
+    Inicijalizuje bazu podataka koristeći Alembic migracije.
+    
+    NAPOMENA: Ova funkcija je zadržana za kompatibilnost, ali se ne preporučuje
+    za direktno pozivanje. Umjesto nje, koristite alembic upgrade head
+    u run.py prije pokretanja aplikacije.
+    """
+    # Napomena: Base.metadata.create_all() se više ne koristi za produkciju
+    # Koristite alembic upgrade head umjesto ovoga
+    pass
 
 
 @contextmanager
@@ -53,3 +62,25 @@ def session_scope():
         raise
     finally:
         session.close()
+
+
+def run_migrations() -> None:
+    """
+    Pokreće Alembic migracije na startup aplikacije.
+    
+    Ovo osigurava da je baza podataka ažurirana prije nego što
+    aplikacija počne sa radom.
+    """
+    from alembic.config import Config
+    from alembic import command
+    from alembic.runtime.migration import MigrationContext
+    from alembic.script import ScriptDirectory
+    from pathlib import Path as SysPath
+    
+    # Get the project root directory (parent of app/)
+    project_root = SysPath(__file__).resolve().parents[2]
+    alembic_cfg = Config(str(project_root / "alembic.ini"))
+    alembic_cfg.set_main_option("script_location", str(project_root / "alembic"))
+    
+    # Run upgrade head
+    command.upgrade(alembic_cfg, "head")

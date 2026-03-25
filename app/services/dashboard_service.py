@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
 from typing import List
@@ -53,6 +53,15 @@ class PaymentRow:
     total_installments: int
     amount: Decimal
     payment_date: date
+
+
+@dataclass
+class DashboardData:
+    """Svi podaci potrebni za Dashboard."""
+    kpis: List[KpiData] = field(default_factory=list)
+    status_kpis: List[KpiData] = field(default_factory=list)
+    recent_payments: List[PaymentRow] = field(default_factory=list)
+    current_month_installments: List[InstallmentRow] = field(default_factory=list)
 
 
 # -----------------------------------------------------------------------------
@@ -418,3 +427,20 @@ class DashboardService:
                 ))
 
             return rows
+
+    # ---------------------------------------------------------------------
+    # Combined method for worker
+    # ---------------------------------------------------------------------
+
+    @staticmethod
+    def get_all_dashboard_data() -> DashboardData:
+        """
+        Vraća sve podatke za dashboard u jednom DTO objektu.
+        Pogodno za korištenje u background workeru.
+        """
+        return DashboardData(
+            kpis=DashboardService.get_dashboard_kpis(),
+            status_kpis=DashboardService.get_status_kpis(),
+            recent_payments=DashboardService.get_recent_payments(limit=8),
+            current_month_installments=DashboardService.get_current_month_installments(limit=8),
+        )

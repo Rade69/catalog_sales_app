@@ -3,7 +3,7 @@ import sys
 from PySide6.QtWidgets import QApplication
 
 from app.utils.logger import setup_logging, get_logger
-from app.database.database import init_db, DB_PATH
+from app.database.database import run_migrations, DB_PATH
 from app.gui.main_window import MainWindow
 from app.services.installment_service import InstallmentService
 from app.utils.backup_manager import BackupManager
@@ -15,8 +15,9 @@ def main() -> None:
     log = get_logger("app.startup")
     log.info("Pokretanje aplikacije")
 
-    init_db()
-    log.info("Baza inicijalizovana: %s", DB_PATH)
+    # Run Alembic migrations to ensure database schema is up to date
+    run_migrations()
+    log.info("Alembic migracije primijenjene, baza: %s", DB_PATH)
 
     # Automatski backup pri pokretanju
     try:
