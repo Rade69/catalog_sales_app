@@ -4,6 +4,7 @@ from pathlib import Path
 from datetime import datetime
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QFileDialog,
     QFrame,
@@ -560,3 +561,25 @@ class MainWindow(QMainWindow):
         if hasattr(self, "status_refresh_label"):
             now = datetime.now().strftime("%H:%M:%S")
             self.status_refresh_label.setText(f"Posljednje osvježenje: {now}")
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """
+        Override closeEvent da kreira auto-backup pri zatvaranju aplikacije.
+        
+        Backup se kreira u get_backup_dir() sa keep=7 (zadržava 7 zadnjih backup-a).
+        Greška pri backup-u ne smije spriječiti zatvaranje aplikacije.
+        """
+        from app.database.database import DB_PATH
+        from app.utils.paths import get_backup_dir
+        
+        try:
+            BackupManager.auto_backup(
+                db_path=DB_PATH,
+                backup_dir=get_backup_dir(),
+                keep=7
+            )
+        except Exception:
+            # Greška pri backup-u ne smije spriječiti zatvaranje
+            pass
+        
+        super().closeEvent(event)

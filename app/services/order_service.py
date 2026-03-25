@@ -208,7 +208,8 @@ class OrderService:
     @staticmethod
     def delete_order(order_id: int) -> bool:
         """
-        Briše narudžbu i sve pripadajuće rate i uplate.
+        Briše narudžbu. Rate i uplate se brišu automatski 
+        zahvaljujući cascade="all, delete-orphan" relacijama.
 
         Args:
             order_id: ID narudžbe za brisanje
@@ -224,18 +225,7 @@ class OrderService:
             if order is None:
                 raise ValueError(f"Narudžba #{order_id} nije pronađena.")
 
-            # Prvo obriši sve uplate povezane sa ratama
-            for installment in order.installments:
-                for payment in installment.payments:
-                    session.delete(payment)
-
-            # Zatim obriši sve rate
-            for installment in order.installments:
-                session.delete(installment)
-
-            # Na kraju obriši narudžbu
             session.delete(order)
-
             return True
 
     @staticmethod

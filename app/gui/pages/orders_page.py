@@ -3,7 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Optional
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -68,8 +68,6 @@ class OrdersPage(QWidget):
     - Tab 1: Nova narudžba (forma + artikli)
     - Tab 2: Pregled narudžbi (tabela + filteri + brisanje)
     """
-
-    navigate_to = Signal(str)
 
     def __init__(self) -> None:
         super().__init__()

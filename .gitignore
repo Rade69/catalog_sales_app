@@ -76,3 +76,4 @@ data/*.db-shm
 data/*.db-wal
 *.sqlite3
 backup/
+*_backup.py
