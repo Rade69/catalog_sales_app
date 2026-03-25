@@ -101,7 +101,7 @@ class PriceListPage(QWidget):
         layout.addWidget(lbl_fajl)
 
         self.excel_label = QLabel("Nije odabran fajl")
-        self.excel_label.setStyleSheet("color: #9ca3af; font-style: italic;")
+        self.excel_label.setProperty("excelFile", True)
         layout.addWidget(self.excel_label, 1)
 
         browse_btn = QPushButton("Odaberi...")
@@ -111,20 +111,7 @@ class PriceListPage(QWidget):
         layout.addWidget(browse_btn)
 
         self.import_btn = QPushButton("Uvezi cjenovnik")
-        self.import_btn.setStyleSheet("""
-            QPushButton {
-                background: #059669;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                padding: 8px 16px;
-                font-weight: 700;
-                font-size: 13px;
-            }
-            QPushButton:hover { background: #047857; }
-            QPushButton:pressed { background: #065f46; }
-            QPushButton:disabled { background: #d1d5db; color: #9ca3af; }
-        """)
+        self.import_btn.setProperty("importBtn", True)
         self.import_btn.clicked.connect(self._run_import)
         import_pixmap = get_pixmap("import", "#ffffff", 18)
         self.import_btn.setIcon(import_pixmap)
@@ -152,7 +139,7 @@ class PriceListPage(QWidget):
         layout.addWidget(self.price_list_combo, 1)
 
         self.items_count_label = QLabel("")
-        self.items_count_label.setStyleSheet("color: #6b7280; font-size: 12px;")
+        self.items_count_label.setProperty("countLabel", True)
         layout.addWidget(self.items_count_label)
 
         layout.addStretch(1)
@@ -166,19 +153,7 @@ class PriceListPage(QWidget):
 
         # Brisanje
         self.delete_btn = QPushButton("Obriši")
-        self.delete_btn.setStyleSheet("""
-            QPushButton {
-                background: #dc2626;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                padding: 6px 14px;
-                font-weight: 600;
-                font-size: 12px;
-            }
-            QPushButton:hover { background: #b91c1c; }
-            QPushButton:disabled { background: #d1d5db; color: #9ca3af; }
-        """)
+        self.delete_btn.setProperty("deleteBtn", True)
         self.delete_btn.setEnabled(False)
         self.delete_btn.clicked.connect(self._confirm_and_delete)
         layout.addWidget(self.delete_btn)
@@ -189,16 +164,7 @@ class PriceListPage(QWidget):
         self.status_banner = QLabel("")
         self.status_banner.setWordWrap(True)
         self.status_banner.setVisible(False)
-        self.status_banner.setStyleSheet("""
-            QLabel {
-                background: #dcfce7;
-                color: #166534;
-                border: 1px solid #bbf7d0;
-                border-radius: 8px;
-                padding: 8px 14px;
-                font-size: 13px;
-            }
-        """)
+        self.status_banner.setProperty("statusBanner", "success")
         return self.status_banner
 
     def _build_items_panel(self) -> QWidget:
@@ -258,7 +224,9 @@ class PriceListPage(QWidget):
         self._excel_path = file_path
         filename = Path(file_path).name
         self.excel_label.setText(filename)
-        self.excel_label.setStyleSheet("color: #059669; font-weight: bold;")
+        self.excel_label.setProperty("excelFileSelected", True)
+        self.excel_label.style().unpolish(self.excel_label)
+        self.excel_label.style().polish(self.excel_label)
         if not self.name_edit.text().strip():
             self.name_edit.setText(Path(file_path).stem)
 
@@ -303,33 +271,24 @@ class PriceListPage(QWidget):
     def _reset_import_btn(self) -> None:
         self.import_btn.setEnabled(True)
         self.import_btn.setText("Uvezi cjenovnik")
+        # Reset excel label
+        if hasattr(self, 'excel_label'):
+            self.excel_label.setProperty("excelFileSelected", False)
+            self.excel_label.style().unpolish(self.excel_label)
+            self.excel_label.style().polish(self.excel_label)
 
     def _show_success(self, text: str) -> None:
         self.status_banner.setText(text)
-        self.status_banner.setStyleSheet("""
-            QLabel {
-                background: #dcfce7;
-                color: #166534;
-                border: 1px solid #bbf7d0;
-                border-radius: 8px;
-                padding: 8px 14px;
-                font-size: 13px;
-            }
-        """)
+        self.status_banner.setProperty("statusBanner", "success")
+        self.status_banner.style().unpolish(self.status_banner)
+        self.status_banner.style().polish(self.status_banner)
         self.status_banner.setVisible(True)
 
     def _show_error(self, text: str) -> None:
         self.status_banner.setText(f"<b>Greška:</b> {text}")
-        self.status_banner.setStyleSheet("""
-            QLabel {
-                background: #fee2e2;
-                color: #991b1b;
-                border: 1px solid #fecaca;
-                border-radius: 8px;
-                padding: 8px 14px;
-                font-size: 13px;
-            }
-        """)
+        self.status_banner.setProperty("statusBanner", "error")
+        self.status_banner.style().unpolish(self.status_banner)
+        self.status_banner.style().polish(self.status_banner)
         self.status_banner.setVisible(True)
 
     # ------------------------------------------------------------------

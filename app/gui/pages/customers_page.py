@@ -64,8 +64,8 @@ class CustomersPage(QWidget):
         root.setSpacing(0)
 
         splitter = QSplitter(Qt.Horizontal)
-        splitter.setHandleWidth(1)
-        splitter.setStyleSheet("QSplitter::handle { background: #e5e7eb; }")
+        splitter.setProperty("cardSplitter", True)
+        splitter.setObjectName("CustomersSplitter")
 
         splitter.addWidget(self._build_left_panel())
         splitter.addWidget(self._build_right_panel())
@@ -149,15 +149,13 @@ class CustomersPage(QWidget):
 
         # Brojač
         self.count_label = QLabel("")
-        self.count_label.setStyleSheet("color: #9ca3af; font-size: 11px;")
+        self.count_label.setProperty("countLabel", True)
         self.count_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.count_label)
 
         # Loading label (skriven dok se ne učitava)
         self._loading_label = QLabel("Učitavanje kupaca...")
-        self._loading_label.setStyleSheet(
-            "color: #6b7280; font-size: 13px; font-style: italic; padding: 4px;"
-        )
+        self._loading_label.setProperty("loading", True)
         self._loading_label.hide()
         layout.addWidget(self._loading_label)
 
@@ -177,7 +175,7 @@ class CustomersPage(QWidget):
 
         # Placeholder kad nema odabranog kupca
         self.placeholder_label = QLabel("← Odaberi kupca iz liste ili klikni \"+ Novi kupac\"")
-        self.placeholder_label.setStyleSheet("color: #9ca3af; font-size: 14px;")
+        self.placeholder_label.setProperty("placeholder", True)
         self.placeholder_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.placeholder_label)
 
@@ -190,16 +188,7 @@ class CustomersPage(QWidget):
 
         # --- Forma za podatke kupca ---
         form_group = QGroupBox("Podaci kupca")
-        form_group.setStyleSheet("""
-            QGroupBox {
-                font-weight: bold; color: #374151;
-                border: 1px solid #e5e7eb; border-radius: 8px;
-                margin-top: 8px; padding-top: 12px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin; left: 12px; padding: 0 6px;
-            }
-        """)
+        form_group.setProperty("formGroup", True)
         form_layout_outer = QVBoxLayout(form_group)
 
         grid = QGridLayout()
@@ -252,16 +241,7 @@ class CustomersPage(QWidget):
 
         # --- Tabela narudžbi ---
         orders_group = QGroupBox("Narudžbe ovog kupca")
-        orders_group.setStyleSheet("""
-            QGroupBox {
-                font-weight: bold; color: #374151;
-                border: 1px solid #e5e7eb; border-radius: 8px;
-                margin-top: 8px; padding-top: 12px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin; left: 12px; padding: 0 6px;
-            }
-        """)
+        orders_group.setProperty("ordersGroup", True)
         orders_layout = QVBoxLayout(orders_group)
 
         self.orders_table = QTableWidget(0, 8)

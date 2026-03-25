@@ -3,72 +3,55 @@
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
-   COLOR PALETTE
+   COLOR PALETTE - DOCUMENTATION ONLY (Qt QSS doesn't support CSS variables)
+   
+   Mjenjaj boje ovdje kao referencu, zatim ažuriraj selektore ispod:
+   
+   Primary (Blue):
+   --primary-50:  #eff6ff    --primary-600: #2563eb
+   --primary-100: #dbeafe    --primary-700: #1d4ed8
+   --primary-200: #bfdbfe    --primary-800: #1e40af
+   --primary-300: #93c5fd    --primary-900: #1e3a8a
+   --primary-400: #60a5fa
+   --primary-500: #3b82f6
+   
+   Success (Green):
+   --success-50:  #f0fdf4    --success-600: #16a34a
+   --success-100: #dcfce7    --success-700: #15803d
+   --success-200: #bbf7d0
+   --success-300: #86efac
+   --success-400: #4ade80
+   --success-500: #22c55e
+   
+   Warning (Amber/Orange):
+   --warning-50:  #fffbeb    --warning-600: #d97706
+   --warning-100: #fef3c7    --warning-700: #b45309
+   --warning-200: #fde68a
+   --warning-300: #fcd34d
+   --warning-400: #fbbf24
+   --warning-500: #f59e0b
+   
+   Danger (Red):
+   --danger-50:  #fef2f2    --danger-600: #dc2626
+   --danger-100: #fee2e2    --danger-700: #b91c1c
+   --danger-200: #fecaca
+   --danger-300: #fca5a5
+   --danger-400: #f87171
+   --danger-500: #ef4444
+   
+   Neutral Grays:
+   --gray-50:  #f9fafb    --gray-600: #4b5563
+   --gray-100: #f3f4f6    --gray-700: #374151
+   --gray-200: #e5e7eb    --gray-800: #1f2937
+   --gray-300: #d1d5db    --gray-900: #111827
+   --gray-400: #9ca3af
+   --gray-500: #6b7280
+   
+   Text Colors:
+   --primary-text:    #1f2937 (gray-800)
+   --secondary-text:  #6b7280 (gray-500)
+   --muted-text:      #9ca3af (gray-400)
    -------------------------------------------------------------------------- */
-
-/*
- * Primary Colors (Blue)
- * --primary-50:  #eff6ff
- * --primary-100: #dbeafe
- * --primary-200: #bfdbfe
- * --primary-300: #93c5fd
- * --primary-400: #60a5fa
- * --primary-500: #3b82f6  ← PRIMARY
- * --primary-600: #2563eb  ← PRIMARY HOVER
- * --primary-700: #1d4ed8
- * --primary-800: #1e40af
- * --primary-900: #1e3a8a
- */
-
-/*
- * Success Colors (Green)
- * --success-50:  #f0fdf4
- * --success-100: #dcfce7
- * --success-200: #bbf7d0
- * --success-300: #86efac
- * --success-400: #4ade80
- * --success-500: #22c55e
- * --success-600: #16a34a  ← SUCCESS
- * --success-700: #15803d
- */
-
-/*
- * Warning Colors (Amber/Orange)
- * --warning-50:  #fffbeb
- * --warning-100: #fef3c7
- * --warning-200: #fde68a
- * --warning-300: #fcd34d
- * --warning-400: #fbbf24
- * --warning-500: #f59e0b
- * --warning-600: #d97706  ← WARNING
- * --warning-700: #b45309
- */
-
-/*
- * Danger Colors (Red)
- * --danger-50:  #fef2f2
- * --danger-100: #fee2e2
- * --danger-200: #fecaca
- * --danger-300: #fca5a5
- * --danger-400: #f87171
- * --danger-500: #ef4444
- * --danger-600: #dc2626  ← DANGER
- * --danger-700: #b91c1c
- */
-
-/*
- * Neutral Grays
- * --gray-50:  #f9fafb
- * --gray-100: #f3f4f6
- * --gray-200: #e5e7eb
- * --gray-300: #d1d5db
- * --gray-400: #9ca3af
- * --gray-500: #6b7280
- * --gray-600: #4b5563
- * --gray-700: #374151
- * --gray-800: #1f2937
- * --gray-900: #111827  ← DARK
- */
 
 
 /* --------------------------------------------------------------------------
@@ -358,6 +341,63 @@ QPushButton:hover {
 
 QPushButton:pressed {
     background-color: #d1d5db;
+}
+
+/* Import Button */
+QPushButton[importBtn="true"] {
+    background-color: #059669;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: 700;
+    font-size: 13px;
+    min-height: 40px;
+}
+
+QPushButton[importBtn="true"]:hover {
+    background-color: #047857;
+}
+
+QPushButton[importBtn="true"]:pressed {
+    background-color: #065f46;
+}
+
+QPushButton[importBtn="true"]:disabled {
+    background-color: #d1d5db;
+    color: #9ca3af;
+}
+
+/* Delete Button */
+QPushButton[deleteBtn="true"] {
+    background-color: #dc2626;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-weight: 600;
+    font-size: 12px;
+    min-height: 36px;
+}
+
+QPushButton[deleteBtn="true"]:hover {
+    background-color: #b91c1c;
+}
+
+QPushButton[deleteBtn="true"]:disabled {
+    background-color: #d1d5db;
+    color: #9ca3af;
+}
+
+/* Excel File Label */
+QLabel[excelFile="true"] {
+    color: #9ca3af;
+    font-style: italic;
+}
+
+QLabel[excelFile="true"][excelFileSelected="true"] {
+    color: #059669;
+    font-weight: bold;
 }
 
 
@@ -907,6 +947,76 @@ QLabel[help="true"] {
     font-style: italic;
 }
 
+/* Loading Label */
+QLabel[loading="true"] {
+    color: #6b7280;
+    font-size: 14px;
+    font-style: italic;
+    padding: 8px;
+}
+
+/* Placeholder Label */
+QLabel[placeholder="true"] {
+    color: #9ca3af;
+    font-size: 14px;
+}
+
+/* Count Label */
+QLabel[countLabel="true"] {
+    color: #9ca3af;
+    font-size: 11px;
+}
+
+/* Section Title */
+QLabel[sectionTitle="true"] {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+/* Hint Label */
+QLabel[hint="true"] {
+    color: #6b7280;
+    font-size: 12px;
+    font-style: italic;
+}
+
+/* Filter Label */
+QLabel[filterLabel="true"] {
+    color: #6b7280;
+    font-size: 12px;
+}
+
+/* Status Banner - Success */
+QLabel[statusBanner="success"] {
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+}
+
+/* Status Banner - Error */
+QLabel[statusBanner="error"] {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+}
+
+/* Status Banner - Warning */
+QLabel[statusBanner="warning"] {
+    background: #fffbeb;
+    color: #92400e;
+    border: 1px solid #fcd34d;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+}
+
 
 /* --------------------------------------------------------------------------
    SPLITTER
@@ -926,6 +1036,69 @@ QSplitter::handle:vertical {
 
 QSplitter::handle:hover {
     background-color: #2563eb;
+}
+
+/* Splitter Handle - Inline Helper Class */
+QSplitter[cardSplitter="true"]::handle {
+    background: #e5e7eb;
+}
+
+
+/* --------------------------------------------------------------------------
+   FILTER BUTTONS
+   -------------------------------------------------------------------------- */
+
+/* Filter Button Base */
+QPushButton[filterBtn="true"] {
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 0px 10px;
+    background: white;
+    color: #374151;
+    font-weight: 600;
+    font-size: 12px;
+    min-height: 34px;
+}
+
+/* Filter Button Checked */
+QPushButton[filterBtn="true"]:checked {
+    background: #2563eb;
+    color: white;
+    border-color: #2563eb;
+}
+
+/* Filter Button Hover */
+QPushButton[filterBtn="true"]:hover:!checked {
+    background: #f3f4f6;
+}
+
+/* Preview Frame */
+QFrame[preview="true"] {
+    background: #f0fdf4;
+    border: 2px solid #059669;
+    border-radius: 10px;
+    margin-top: 4px;
+}
+
+/* Preview Title */
+QLabel[previewTitle="true"] {
+    color: #059669;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
+
+/* Preview Total */
+QLabel[previewTotal="true"] {
+    font-size: 18px;
+    font-weight: 800;
+    color: #111827;
+}
+
+/* Preview Installment */
+QLabel[previewInstallment="true"] {
+    font-size: 13px;
+    color: #374151;
 }
 
 
@@ -975,6 +1148,24 @@ QGroupBox::title {
     left: 16px;
     padding: 0 8px;
     color: #1f2937;
+}
+
+/* Custom Group Boxes */
+QGroupBox[formGroup="true"],
+QGroupBox[ordersGroup="true"] {
+    font-weight: bold;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    margin-top: 8px;
+    padding-top: 12px;
+}
+
+QGroupBox[formGroup="true"]::title,
+QGroupBox[ordersGroup="true"]::title {
+    subcontrol-origin: margin;
+    left: 12px;
+    padding: 0 6px;
 }
 
 
