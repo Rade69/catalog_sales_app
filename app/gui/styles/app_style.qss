@@ -694,6 +694,36 @@ QLabel[statusBadge="true"][status="cancelled"] {
     border: 1px solid #6b728040;
 }
 
+/* Reports Page */
+QLabel[helpText="true"] {
+    color: #6b7280;
+    font-size: 13px;
+}
+
+QFrame[separator="true"] {
+    color: #e5e7eb;
+}
+
+QPushButton[generateBtn="true"] {
+    background: #059669;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 24px;
+    font-weight: 700;
+    font-size: 14px;
+    min-height: 48px;
+}
+
+QPushButton[generateBtn="true"]:hover {
+    background: #047857;
+}
+
+QPushButton[generateBtn="true"]:disabled {
+    background: #d1d5db;
+    color: #9ca3af;
+}
+
 
 /* --------------------------------------------------------------------------
    TABLES

@@ -57,13 +57,13 @@ class ReportsPage(QWidget):
             "datumima dospijeća i brojevima ugovora."
         )
         desc.setWordWrap(True)
-        desc.setStyleSheet("color: #6b7280; font-size: 13px;")
+        desc.setProperty("helpText", True)
         layout.addWidget(desc)
 
         # Separator
         sep = QFrame()
         sep.setFrameShape(QFrame.HLine)
-        sep.setStyleSheet("color: #e5e7eb;")
+        sep.setProperty("separator", True)
         layout.addWidget(sep)
 
         # Kampanja
@@ -104,15 +104,7 @@ class ReportsPage(QWidget):
         # Dugme
         btn_row = QHBoxLayout()
         self.btn_generate = QPushButton("📊  Generiraj Excel izvještaj")
-        self.btn_generate.setStyleSheet("""
-            QPushButton {
-                background: #059669; color: white; border: none;
-                border-radius: 10px; padding: 12px 24px;
-                font-weight: 700; font-size: 14px;
-            }
-            QPushButton:hover { background: #047857; }
-            QPushButton:disabled { background: #d1d5db; color: #9ca3af; }
-        """)
+        self.btn_generate.setProperty("generateBtn", True)
         self.btn_generate.setMinimumHeight(48)
         self.btn_generate.clicked.connect(self._generate_naplata_report)
         btn_row.addWidget(self.btn_generate)
@@ -172,18 +164,16 @@ class ReportsPage(QWidget):
             self.report_status_label.setText(
                 f"✅ Izvještaj uspješno generisan:\n{output}"
             )
-            self.report_status_label.setStyleSheet(
-                "background:#dcfce7; color:#166534; border:1px solid #bbf7d0;"
-                "border-radius:8px; padding:12px;"
-            )
+            self.report_status_label.setProperty("statusBanner", "success")
+            self.report_status_label.style().unpolish(self.report_status_label)
+            self.report_status_label.style().polish(self.report_status_label)
             self.report_status_label.setVisible(True)
 
         except Exception as e:
             self.report_status_label.setText(f"❌ Greška: {str(e)}")
-            self.report_status_label.setStyleSheet(
-                "background:#fee2e2; color:#991b1b; border:1px solid #fecaca;"
-                "border-radius:8px; padding:12px;"
-            )
+            self.report_status_label.setProperty("statusBanner", "error")
+            self.report_status_label.style().unpolish(self.report_status_label)
+            self.report_status_label.style().polish(self.report_status_label)
             self.report_status_label.setVisible(True)
         finally:
             self.btn_generate.setEnabled(True)

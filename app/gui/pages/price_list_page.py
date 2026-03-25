@@ -261,7 +261,9 @@ class PriceListPage(QWidget):
         self.name_edit.clear()
         self._excel_path = None
         self.excel_label.setText("Nije odabran fajl")
-        self.excel_label.setStyleSheet("color: #9ca3af; font-style: italic;")
+        self.excel_label.setProperty("excelFileSelected", False)
+        self.excel_label.style().unpolish(self.excel_label)
+        self.excel_label.style().polish(self.excel_label)
         self._load_price_lists()
 
     def _on_import_error(self, message: str) -> None:
