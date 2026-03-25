@@ -66,8 +66,7 @@ class PaymentsPage(QWidget):
 
         # Split panel
         splitter = QSplitter(Qt.Horizontal)
-        splitter.setHandleWidth(1)
-        splitter.setStyleSheet("QSplitter::handle { background: #e5e7eb; }")
+        splitter.setProperty("cardSplitter", True)
         splitter.addWidget(self._build_left_panel())
         splitter.addWidget(self._build_right_panel())
         splitter.setSizes([820, 460])
@@ -137,26 +136,8 @@ class PaymentsPage(QWidget):
 
         # Filter gumbi
         filter_label = QLabel("Prikaži:")
-        filter_label.setStyleSheet("color: #6b7280; font-size: 12px;")
+        filter_label.setProperty("filterLabel", True)
         layout.addWidget(filter_label)
-
-        FILTER_BTN_STYLE = """
-            QPushButton {
-                border: 1px solid #d1d5db;
-                border-radius: 8px;
-                padding: 0px 10px;
-                background: white;
-                color: #374151;
-                font-weight: 600;
-                font-size: 12px;
-            }
-            QPushButton:checked {
-                background: #2563eb;
-                color: white;
-                border-color: #2563eb;
-            }
-            QPushButton:hover:!checked { background: #f3f4f6; }
-        """
 
         self.filter_buttons: dict[str, QPushButton] = {}
         self._filter_icons: dict[str, str] = {
@@ -175,8 +156,8 @@ class PaymentsPage(QWidget):
             btn = QPushButton(label)
             btn.setCheckable(True)
             btn.setProperty("secondary", True)
+            btn.setProperty("filterBtn", True)
             btn.setFixedSize(130, 34)
-            btn.setStyleSheet(FILTER_BTN_STYLE)
             btn.clicked.connect(lambda checked, k=key: self._set_filter(k))
             btn.setIcon(get_pixmap(self._filter_icons[key], "#374151", 16))
             layout.addWidget(btn)
@@ -192,7 +173,7 @@ class PaymentsPage(QWidget):
 
         # Broj vidljivih rata
         self.count_label = QLabel("")
-        self.count_label.setStyleSheet("color: #9ca3af; font-size: 12px;")
+        self.count_label.setProperty("countLabel", True)
         layout.addWidget(self.count_label)
 
         return bar
@@ -211,9 +192,7 @@ class PaymentsPage(QWidget):
 
         # Loading label (skriven dok se ne učitava)
         self._loading_label = QLabel("Učitavanje rata...")
-        self._loading_label.setStyleSheet(
-            "color: #6b7280; font-size: 13px; font-style: italic; padding: 4px;"
-        )
+        self._loading_label.setProperty("loading", True)
         self._loading_label.hide()
         layout.addWidget(self._loading_label)
 
@@ -257,28 +236,22 @@ class PaymentsPage(QWidget):
 
         # --- Info o odabranoj rati ---
         self.info_frame = QFrame()
-        self.info_frame.setStyleSheet(
-            "QFrame { background: #f9fafb; border-radius: 10px; }"
-        )
+        self.info_frame.setProperty("infoFrame", True)
         info_layout = QVBoxLayout(self.info_frame)
         info_layout.setContentsMargins(16, 14, 16, 14)
         info_layout.setSpacing(6)
 
         self.info_kupac = QLabel("← Odaberi ratu iz tabele")
-        self.info_kupac.setStyleSheet(
-            "font-size: 15px; font-weight: 700; color: #111827;"
-        )
+        self.info_kupac.setProperty("infoTitle", True)
         self.info_artikal = QLabel("")
-        self.info_artikal.setStyleSheet("color: #6b7280; font-size: 13px;")
+        self.info_artikal.setProperty("infoText", True)
 
         # Iznos rate (pojednostavljeno - samo iznos)
         amounts_row = QHBoxLayout()
         self.info_iznos_lbl = QLabel("Iznos rate:")
-        self.info_iznos_lbl.setStyleSheet("color: #6b7280; font-size: 12px;")
+        self.info_iznos_lbl.setProperty("infoLabel", True)
         self.info_iznos_val = QLabel("")
-        self.info_iznos_val.setStyleSheet(
-            "font-size: 16px; font-weight: 800; color: #111827;"
-        )
+        self.info_iznos_val.setProperty("infoValue", True)
         amounts_row.addWidget(self.info_iznos_lbl)
         amounts_row.addWidget(self.info_iznos_val)
         amounts_row.addStretch(1)
@@ -296,7 +269,7 @@ class PaymentsPage(QWidget):
         form_layout.setSpacing(12)
 
         form_title = QLabel("Nova uplata")
-        form_title.setStyleSheet("font-size: 14px; font-weight: 700; color: #374151;")
+        form_title.setProperty("formTitle", True)
         form_layout.addWidget(form_title)
 
         # Iznos
@@ -343,19 +316,7 @@ class PaymentsPage(QWidget):
 
         self.btn_evidentiraj = QPushButton("Evidentiraj uplatu")
         self.btn_evidentiraj.setMinimumHeight(44)
-        self.btn_evidentiraj.setStyleSheet("""
-            QPushButton {
-                background: #2563eb;
-                color: white;
-                border: none;
-                border-radius: 10px;
-                padding: 10px 20px;
-                font-weight: 700;
-                font-size: 14px;
-            }
-            QPushButton:hover { background: #1d4ed8; }
-            QPushButton:disabled { background: #d1d5db; color: #9ca3af; }
-        """)
+        self.btn_evidentiraj.setProperty("evidentirajBtn", True)
         cc_pixmap = get_pixmap("credit-card", "#ffffff", 18)
         self.btn_evidentiraj.setIcon(cc_pixmap)
         self.btn_evidentiraj.clicked.connect(self._evidentiraj_uplatu)
@@ -379,9 +340,7 @@ class PaymentsPage(QWidget):
         history_layout.setSpacing(6)
 
         history_title = QLabel("Historija uplata ove rate")
-        history_title.setStyleSheet(
-            "font-size: 13px; font-weight: 700; color: #374151;"
-        )
+        history_title.setProperty("historyTitle", True)
         history_layout.addWidget(history_title)
 
         self.history_table = QTableWidget()
