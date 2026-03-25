@@ -91,8 +91,7 @@ class InstallmentsPage(QWidget):
         root.addWidget(self._build_toolbar())
 
         splitter = QSplitter(Qt.Horizontal)
-        splitter.setHandleWidth(1)
-        splitter.setStyleSheet("QSplitter::handle { background: #e5e7eb; }")
+        splitter.setProperty("cardSplitter", True)
         splitter.addWidget(self._build_left_panel())
         splitter.addWidget(self._build_right_panel())
         splitter.setSizes([900, 400])
@@ -159,7 +158,7 @@ class InstallmentsPage(QWidget):
         self.table_title = QLabel("Rate")
         self.table_title.setProperty("sectionTitle", True)
         self.count_label = QLabel("")
-        self.count_label.setStyleSheet("color: #6b7280; font-size: 12px;")
+        self.count_label.setProperty("countLabel", True)
         header.addWidget(self.table_title)
         header.addStretch(1)
         header.addWidget(self.count_label)
@@ -167,9 +166,7 @@ class InstallmentsPage(QWidget):
 
         # Loading label (skriven dok se ne učitava)
         self._loading_label = QLabel("Učitavanje rata...")
-        self._loading_label.setStyleSheet(
-            "color: #6b7280; font-size: 13px; font-style: italic; padding: 4px;"
-        )
+        self._loading_label.setProperty("loading", True)
         self._loading_label.hide()
         layout.addWidget(self._loading_label)
 
@@ -209,39 +206,33 @@ class InstallmentsPage(QWidget):
 
         # Info blok
         self.info_frame = QFrame()
-        self.info_frame.setStyleSheet(
-            "QFrame { background: #f9fafb; border-radius: 10px; border: 1px solid #e5e7eb; }"
-        )
+        self.info_frame.setProperty("infoFrame", True)
         info_layout = QVBoxLayout(self.info_frame)
         info_layout.setContentsMargins(16, 14, 16, 14)
         info_layout.setSpacing(8)
 
         self.lbl_placeholder = QLabel("← Odaberi ratu iz tabele")
-        self.lbl_placeholder.setStyleSheet("color: #9ca3af; font-size: 14px;")
-        info_layout.addWidget(self.lbl_placeholder)
+        self.lbl_placeholder.setProperty("placeholder", True)
+        self.lbl_placeholder.hide()
 
         self.lbl_kupac = QLabel("")
-        self.lbl_kupac.setStyleSheet("font-size: 15px; font-weight: 700; color: #111827;")
-        self.lbl_kupac.setWordWrap(True)
+        self.lbl_kupac.setProperty("infoTitle", True)
         self.lbl_kupac.hide()
 
         self.lbl_artikal = QLabel("")
-        self.lbl_artikal.setStyleSheet("color: #6b7280; font-size: 13px;")
-        self.lbl_artikal.setWordWrap(True)
+        self.lbl_artikal.setProperty("infoText", True)
         self.lbl_artikal.hide()
 
         self.lbl_rata_broj = QLabel("")
-        self.lbl_rata_broj.setStyleSheet("color: #374151; font-size: 13px;")
+        self.lbl_rata_broj.setProperty("infoSmall", True)
         self.lbl_rata_broj.hide()
 
         self.lbl_dospijeće = QLabel("")
-        self.lbl_dospijeće.setStyleSheet("color: #374151; font-size: 13px;")
+        self.lbl_dospijeće.setProperty("infoSmall", True)
         self.lbl_dospijeće.hide()
 
         self.lbl_status_badge = QLabel("")
-        self.lbl_status_badge.setStyleSheet(
-            "font-size: 13px; font-weight: 700; border-radius: 6px; padding: 4px 12px;"
-        )
+        self.lbl_status_badge.setProperty("statusBadge", True)
         self.lbl_status_badge.hide()
 
         # Iznosi
@@ -258,9 +249,10 @@ class InstallmentsPage(QWidget):
         ]:
             col = QVBoxLayout()
             lbl = QLabel(lbl_text)
-            lbl.setStyleSheet("color: #9ca3af; font-size: 11px;")
+            lbl.setProperty("amountLabel", True)
             val = QLabel("—")
-            val.setStyleSheet(f"font-size: 16px; font-weight: 800; color: {color};")
+            val.setProperty("amountValue", True)
+            val.setProperty("valueColor", color)
             setattr(self, attr + "_lbl", lbl)
             setattr(self, attr + "_val", val)
             col.addWidget(lbl)
@@ -460,10 +452,11 @@ class InstallmentsPage(QWidget):
 
         fg, bg = _STATUS_COLOR.get(status, ("#374151", "#f9fafb"))
         self.lbl_status_badge.setText(_STATUS_LABEL.get(status, status))
-        self.lbl_status_badge.setStyleSheet(
-            f"font-size: 13px; font-weight: 700; border-radius: 6px; padding: 4px 12px;"
-            f"color: {fg}; background: {bg}; border: 1px solid {fg}40;"
-        )
+        self.lbl_status_badge.setProperty("status", status)
+        self.lbl_status_badge.setProperty("statusFg", fg)
+        self.lbl_status_badge.setProperty("statusBg", bg)
+        self.lbl_status_badge.style().unpolish(self.lbl_status_badge)
+        self.lbl_status_badge.style().polish(self.lbl_status_badge)
 
         self.lbl_iznos_val.setText(f"{inst.amount:.2f} EUR")
         self.lbl_placeno_val.setText(f"{paid:.2f} EUR")

@@ -637,6 +637,63 @@ QPushButton[evidentirajBtn="true"]:disabled {
     color: #9ca3af;
 }
 
+/* Installments Page */
+QLabel[infoSmall="true"] {
+    color: #374151;
+    font-size: 13px;
+}
+
+QLabel[amountLabel="true"] {
+    color: #9ca3af;
+    font-size: 11px;
+}
+
+QLabel[amountValue="true"] {
+    font-size: 16px;
+    font-weight: 800;
+}
+
+/* Dynamic color properties handled in Python */
+
+/* Status Badge */
+QLabel[statusBadge="true"] {
+    font-size: 13px;
+    font-weight: 700;
+    border-radius: 6px;
+    padding: 4px 12px;
+}
+
+/* Status-specific colors */
+QLabel[statusBadge="true"][status="overdue"] {
+    color: #dc2626;
+    background: #fef2f2;
+    border: 1px solid #dc262640;
+}
+
+QLabel[statusBadge="true"][status="paid"] {
+    color: #16a34a;
+    background: #f0fdf4;
+    border: 1px solid #16a34a40;
+}
+
+QLabel[statusBadge="true"][status="partially_paid"] {
+    color: #3b82f6;
+    background: #eff6ff;
+    border: 1px solid #3b82f640;
+}
+
+QLabel[statusBadge="true"][status="pending"] {
+    color: #d97706;
+    background: #fffbeb;
+    border: 1px solid #d9770640;
+}
+
+QLabel[statusBadge="true"][status="cancelled"] {
+    color: #6b7280;
+    background: #f9fafb;
+    border: 1px solid #6b728040;
+}
+
 
 /* --------------------------------------------------------------------------
    TABLES
