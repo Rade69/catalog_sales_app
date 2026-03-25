@@ -331,22 +331,20 @@ class CampaignsPage(QWidget):
         )
 
     def _populate_products_table(self, prices: list) -> None:
-        """Puni tabelu proizvoda sa listom CampaignPrice objekata."""
+        """Puni tabelu proizvoda sa listom CampaignPriceDTO objekata."""
         self.products_table.setRowCount(0)
         self.products_table.setRowCount(len(prices))
 
         for row, cp in enumerate(prices):
-            product = cp.product
+            # Koristi denormalizovana polja iz CampaignPriceDTO
+            product_name = cp.product_name or "—"
+            product_brand = cp.product_brand or ""
 
             # Naziv
-            self.products_table.setItem(row, 0, QTableWidgetItem(
-                product.name if product else "—"
-            ))
+            self.products_table.setItem(row, 0, QTableWidgetItem(product_name))
 
             # Brend
-            self.products_table.setItem(row, 1, QTableWidgetItem(
-                product.brand or "" if product else ""
-            ))
+            self.products_table.setItem(row, 1, QTableWidgetItem(product_brand))
 
             # Cijena
             self.products_table.setItem(row, 2, create_numeric_item(cp.regular_price))
