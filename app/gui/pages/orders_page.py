@@ -550,11 +550,10 @@ class OrdersPage(QWidget):
 
         for row, item in enumerate(items):
             if self._source == _SOURCE_CAMPAIGN:
-                # CampaignPrice — nema svih polja kao PriceListItem
-                p       = item.product
+                # CampaignPriceDTO — koristi denormalizovana polja
                 rb      = str(row + 1)
-                firma   = p.brand if p else ""
-                naziv   = p.name if p else "—"
+                firma   = item.product_brand or ""
+                naziv   = item.product_name or "—"
                 sifra   = "—"
                 cijena  = item.regular_price
                 bod     = item.points

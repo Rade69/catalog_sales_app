@@ -151,6 +151,11 @@ class CampaignPriceDTO:
     points: Optional[int]
     status_label: Optional[str]
     
+    # Denormalizovani podaci o proizvodu
+    product_name: str = ""
+    product_brand: Optional[str] = None
+    product_normalized_name: Optional[str] = None
+
     # Izračunata vrijednost
     @property
     def effective_price(self) -> Decimal:
@@ -334,6 +339,7 @@ def _to_price_list_item_dto(item) -> PriceListItemDTO:
 
 def _to_campaign_price_dto(campaign_price) -> CampaignPriceDTO:
     """Konvertuje SQLAlchemy CampaignPrice objekat u CampaignPriceDTO."""
+    product = getattr(campaign_price, 'product', None)
     return CampaignPriceDTO(
         id=campaign_price.id,
         campaign_id=campaign_price.campaign_id,
@@ -342,4 +348,7 @@ def _to_campaign_price_dto(campaign_price) -> CampaignPriceDTO:
         discount_price=Decimal(str(campaign_price.discount_price)) if campaign_price.discount_price else None,
         points=campaign_price.points,
         status_label=campaign_price.status_label,
+        product_name=product.name if product else "",
+        product_brand=product.brand if product else None,
+        product_normalized_name=product.normalized_name if product else None,
     )
