@@ -515,6 +515,7 @@ class CampaignService:
     def delete_campaign(campaign_id: int) -> bool:
         """
         Briše kampanju i sve pripadajuće proizvode (CampaignPrice).
+        Koristi cascade='all, delete-orphan' relaciju.
 
         Args:
             campaign_id: ID kampanje za brisanje
@@ -523,18 +524,24 @@ class CampaignService:
             True ako je brisanje uspješno
 
         Raises:
-            ValueError: Ako kampanja ne postoji
+            ValueError: Ako kampanja ne postoji ili ima narudžbe
         """
+        from sqlalchemy import select, func
+        
         with session_scope() as session:
             campaign = session.get(Campaign, campaign_id)
             if campaign is None:
                 raise ValueError(f"Kampanja #{campaign_id} nije pronađena.")
 
-            # Prvo obriši sve CampaignPrice zapise
-            for cp in campaign.prices:
-                session.delete(cp)
+            # Provjeri ima li narudžbi
+            from app.database.models import Order
+            orders_count = session.execute(
+                select(func.count()).select_from(Order).where(Order.campaign_id == campaign_id)
+            ).scalar_one()
+            
+            if orders_count > 0:
+                raise ValueError(f"Kampanja ima {orders_count} vezanih narudžbi i ne može se obrisati.")
 
-            # Zatim obriši kampanju
+            # Briši kampanju - CampaignPrice se briše automatski (cascade)
             session.delete(campaign)
-
             return True

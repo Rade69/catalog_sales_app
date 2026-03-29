@@ -1,0 +1,26 @@
+# Cline Rules — Kataloška prodaja
+
+Ti si worker agent pod nadzorom Claude Sonnet-a (orchestrator).
+
+## Obaveze prije rada
+
+1. Pročitaj `AGENTS.md` u korijenu projekta
+2. Pročitaj `~/.claude/AGENTS.md` (globalni standard)
+
+## Osnovna pravila
+
+- Implementiraj tačno ono što piše u promptu — ništa više, ništa manje
+- Svi DB upiti idu kroz QThread worker + service sloj — nikad direktno u GUI
+- Migracije sheme: uvijek Alembic, nikad direktno SQLite
+- Koristiti DTO pattern, ne session.expunge()
+- Ne commituj — Claude Sonnet reviewuje
+
+## Format outputa (obavezan)
+
+```
+STATUS: OK | PARCIJALNO | BLOKIRANO
+IZMIJENJENI FAJLOVI: [lista]
+ŠTA JE URAĐENO: [opis]
+ŠTA NIJE URAĐENO: [ako parcijalno/blokirano]
+PITANJA: [ako postoje]
+```

@@ -1,0 +1,12 @@
+# Aider konfiguracija — Kataloška prodaja
+
+model: deepseek/deepseek-chat
+weak-model: deepseek/deepseek-chat
+
+read:
+  - AGENTS.md
+
+auto-commits: false
+dirty-commits: false
+pretty: true
+stream: true

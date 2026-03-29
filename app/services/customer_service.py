@@ -94,12 +94,22 @@ class CustomerService:
     @staticmethod
     def delete_customer(customer_id: int) -> None:
         """Briše kupca ako nema vezanih narudžbi."""
+        from sqlalchemy import select
+        
         with session_scope() as session:
             customer = session.get(Customer, customer_id)
             if customer is None:
                 raise ValueError("Kupac nije pronađen.")
-            if customer.orders:
-                raise ValueError("Kupac ima vezane narudžbe i ne može se obrisati.")
+            
+            # Provjeri ima li narudžbi
+            from app.database.models import Order
+            orders_count = session.execute(
+                select(func.count()).select_from(Order).where(Order.customer_id == customer_id)
+            ).scalar_one()
+            
+            if orders_count > 0:
+                raise ValueError(f"Kupac ima {orders_count} vezanih narudžbi i ne može se obrisati.")
+            
             session.delete(customer)
 
     @staticmethod
