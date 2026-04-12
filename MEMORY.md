@@ -3,18 +3,25 @@
 ## Last Commit Message
 
 ```
-feat: Implementirano upravljanje cenovnicima i uklonjena autentikacija
+v0.41 - Dodata paginacija, editovanje kampanja i cjenovnika, validacije i SQLCipher podrška
 ```
 
 **Opis:**
-- Potpuno implementirana funkcionalnost upravljanja cenovnicima (kreiranje, izmena, duplikacija, export)
-- Uklonjena obavezna autentikacija pri pokretanju aplikacije
-- Ispravljen `NameError` u `PriceListPage` (QWidget import)
+- Implementirana paginacija za rate, cjenovnike i uplate
+- Editovanje kampanja sa promjenom statusa (draft/active/archived)
+- Editovanje, duplikacija i export cjenovnika u Excel
+- SQLCipher enkripcija baze (opciono)
+- Validacije unosa za kupce, narudžbe, uplate i cjenovnike
 
 **Promene:**
-- Dodata nova funkcionalnost: upravljanje cenovnicima sa edit, duplicate, export
-- GUI za cenovnike ažuriran sa novim dugmićima i dialogima
-- Uklonjen `require_auth()` poziv iz `run.py`
-- Dodat `QWidget` import u `price_list_page.py`
+- `app/gui/pagination.py` - Novi PaginationWidget
+- `app/gui/base_page.py` - Nova bazna klasa za stranice
+- `app/database/database.py` - SQLCipher podrška
+- `app/gui/pages/campaigns_page.py` - Dodato editovanje kampanja
+- `app/gui/pages/price_list_page.py` - Edit, duplicate, export, paginacija
+- `app/gui/pages/installments_page.py` - Paginacija
+- `app/gui/pages/payments_page.py` - Paginacija
+- `app/services/*.py` - Validacije, limit/offset parametri
+- Testovi: `test_campaign_service.py`, `test_customer_service.py`, `test_price_list_service.py`
 
 **Test Status:** Svi testovi prolaze.
