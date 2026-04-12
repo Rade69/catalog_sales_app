@@ -26,6 +26,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.gui.base_page import BasePage
+
 from app.gui.table_helpers import style_table, show_empty_state
 from app.services.campaign_service import CampaignService
 from app.services.order_service import OrderService
@@ -62,7 +64,7 @@ _SOURCE_CAMPAIGN  = "campaign"
 _SOURCE_PRICELIST = "pricelist"
 
 
-class OrdersPage(QWidget):
+class OrdersPage(BasePage):
     """
     Stranica za upravljanje narudžbama — dva taba:
     - Tab 1: Nova narudžba (forma + artikli)
@@ -416,7 +418,7 @@ class OrdersPage(QWidget):
             else:
                 contract_item.setForeground(QColor("#9ca3af"))
         except Exception as e:
-            QMessageBox.warning(self, "Greška", f"Neuspješno ažuriranje broja ugovora:\n{str(e)}")
+            self._show_error_message(f"Neuspješno ažuriranje broja ugovora:\n{str(e)}")
             # Vrati staru vrijednost
             order = OrderService.get_order_details(order_id)
             if order:
@@ -479,6 +481,7 @@ class OrdersPage(QWidget):
 
     def _set_loading_state(self, loading: bool) -> None:
         """Postavlja UI u loading stanje."""
+        super()._set_loading_state(loading)
         if loading:
             if self._loading_label:
                 self._loading_label.show()
@@ -500,11 +503,7 @@ class OrdersPage(QWidget):
     def _on_orders_error(self, error_msg: str) -> None:
         """Handler za grešku prilikom učitavanja narudžbi."""
         self._set_loading_state(False)
-        QMessageBox.critical(
-            self,
-            "Greška pri učitavanju",
-            f"Neuspješno učitavanje narudžbi:\n{error_msg}"
-        )
+        self._show_error_message(f"Neuspješno učitavanje narudžbi:\n{error_msg}")
 
     # ------------------------------------------------------------------
     # Izvor artikala
@@ -831,7 +830,7 @@ class OrdersPage(QWidget):
             self.delete_btn.setEnabled(False)
             self._load_orders()
         except Exception as e:
-            QMessageBox.warning(self, "Greška", str(e))
+            self._show_error_message(str(e))
 
     # ------------------------------------------------------------------
     # Detalji narudžbe (dvostruki klik)
@@ -914,7 +913,7 @@ class OrdersPage(QWidget):
                     contract_item.setForeground(QColor("#9ca3af"))
                     contract_item.setFont(QFont())
         except Exception as e:
-            QMessageBox.warning(self, "Greška", f"Neuspješno ažuriranje:\n{str(e)}")
+            self._show_error_message(f"Neuspješno ažuriranje:\n{str(e)}")
 
     def _show_order_details(self, index) -> None:
         item = self.table.item(index.row(), 0)
@@ -1027,13 +1026,16 @@ class OrdersPage(QWidget):
     # ------------------------------------------------------------------
 
     def _show_message(self, message: str, error: bool = False) -> None:
-        self.message_label.setText(message)
-        self.message_label.setProperty("statusBanner", "error" if error else "success")
-        self.message_label.style().unpolish(self.message_label)
-        self.message_label.style().polish(self.message_label)
-        self.message_label.show()
+        if error:
+            self._show_error_message(message, use_banner=True)
+        else:
+            self._show_success_message(message, use_banner=True)
 
     def on_activate(self) -> None:
         self._load_source_combos()
         self._load_customers()
         self._load_orders()
+
+    def on_deactivate(self) -> None:
+        # Cleanup any resources if needed
+        pass

@@ -101,6 +101,15 @@ class CampaignService:
             return _to_campaign_dto(campaign)
 
     @staticmethod
+    def get_campaign(campaign_id: int) -> Optional[CampaignDTO]:
+        """
+        Dohvaća kampanju po ID-u i vraća CampaignDTO.
+        """
+        with session_scope() as session:
+            campaign = session.get(Campaign, campaign_id)
+            return _to_campaign_dto(campaign) if campaign else None
+
+    @staticmethod
     def get_campaign_by_name(name: str) -> Optional[CampaignDTO]:
         """
         Dohvaća kampanju po nazivu i vraća CampaignDTO.
@@ -123,6 +132,65 @@ class CampaignService:
                 ).scalars().all()
             )
             return [_to_campaign_dto(c) for c in campaigns]
+
+    @staticmethod
+    def update_campaign(
+        campaign_id: int,
+        name: str,
+        start_date: date,
+        end_date: date,
+        status: CampaignStatus,
+        note: Optional[str] = None
+    ) -> CampaignDTO:
+        """
+        Ažurira kampanju i vraća CampaignDTO.
+        """
+        name = name.strip()
+        if not name:
+            raise ValueError("Naziv kampanje je obavezan.")
+
+        if start_date > end_date:
+            raise ValueError("Datum početka mora biti prije datuma završetka.")
+
+        with session_scope() as session:
+            campaign = session.get(Campaign, campaign_id)
+            if campaign is None:
+                raise ValueError(f"Kampanja #{campaign_id} nije pronađena.")
+
+            # Proveri da li kampanja sa novim imenom već postoji (osim ove)
+            existing = session.execute(
+                select(Campaign)
+                .where(Campaign.name == name)
+                .where(Campaign.id != campaign_id)
+            ).scalars().first()
+
+            if existing:
+                raise ValueError(
+                    f"Kampanja sa nazivom '{name}' već postoji."
+                )
+
+            # Proveri da li se arhivira kampanja koja ima narudžbe
+            if status == CampaignStatus.ARCHIVED and campaign.status != CampaignStatus.ARCHIVED:
+                from app.database.models import Order
+                from sqlalchemy import func
+                orders_count = session.execute(
+                    select(func.count()).select_from(Order).where(Order.campaign_id == campaign_id)
+                ).scalar_one()
+                
+                if orders_count > 0:
+                    raise ValueError(
+                        f"Kampanja ima {orders_count} vezanih narudžbi i ne može se arhivirati."
+                    )
+
+            campaign.name = name
+            campaign.start_date = start_date
+            campaign.end_date = end_date
+            campaign.status = status
+            campaign.note = note.strip() if note else None
+            
+            session.flush()
+            session.refresh(campaign)
+            return _to_campaign_dto(campaign)
 
     @staticmethod
     def list_campaign_products(campaign_id: int) -> List[CampaignPriceDTO]:

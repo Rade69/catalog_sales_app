@@ -98,27 +98,33 @@ class LoadOrdersWorker(BaseWorker):
 class LoadInstallmentsWorker(BaseWorker):
     """Worker za učitavanje liste rata."""
 
-    finished = Signal(list)  # list[InstallmentDTO]
+    finished = Signal(tuple)  # (list[InstallmentDTO], total_count: int)
 
     def __init__(
         self,
         filter_type: str = "overdue",
         search: str = "",
         customer_id: Optional[int] = None,
+        limit: int = 0,
+        offset: int = 0,
     ) -> None:
         super().__init__()
         self._filter_type = filter_type
         self._search = search
         self._customer_id = customer_id
+        self._limit = limit
+        self._offset = offset
 
     def run(self) -> None:
         try:
-            installments = PaymentService.get_installments_for_payment(
+            installments, total_count = PaymentService.get_installments_for_payment(
                 filter_type=self._filter_type,
                 search=self._search,
                 customer_id=self._customer_id,
+                limit=self._limit,
+                offset=self._offset,
             )
-            self.finished.emit(installments)
+            self.finished.emit((installments, total_count))
         except Exception as exc:
             self.error.emit(str(exc))
 

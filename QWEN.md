@@ -1,0 +1,2 @@
+## Qwen Added Memories
+- Project catalog_sales_app: v0.40 - Popravljene funkcije za brisanje. delete_customer() koristi SQL query za provjeru narudžbi (briše samo kupce bez narudžbi). delete_campaign() koristi cascade (briše kampanje bez narudžbi + proizvodi se brišu automatski). delete_order() briše narudžbu+rate+uplate. delete() za cjenovnike briše cjenovnik+stavke. delete_payment() briše uplatu+ažurira statuse. Sve funkcije testirane i rade.

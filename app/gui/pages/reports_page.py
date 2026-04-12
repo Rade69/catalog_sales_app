@@ -15,8 +15,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.gui.base_page import BasePage
 
-class ReportsPage(QWidget):
+
+class ReportsPage(BasePage):
     """
     Stranica za generiranje Excel izvještaja naplate.
 
@@ -38,6 +40,10 @@ class ReportsPage(QWidget):
 
     def on_activate(self) -> None:
         self._load_campaigns_combo()
+
+    def on_deactivate(self) -> None:
+        # Cleanup any resources if needed
+        pass
 
     def _build_naplata_card(self) -> QFrame:
         card = QFrame()
@@ -134,7 +140,7 @@ class ReportsPage(QWidget):
 
         campaign_id = self.report_campaign_combo.currentData()
         if campaign_id is None:
-            QMessageBox.warning(self, "Greška", "Odaberi kampanju.")
+            self._show_error_message("Odaberi kampanju.")
             return
 
         campaign_name = self.report_campaign_combo.currentText()
@@ -161,20 +167,10 @@ class ReportsPage(QWidget):
                            or "KRUNIĆ STOJANOVIĆ SANJA",
             )
 
-            self.report_status_label.setText(
-                f"✅ Izvještaj uspješno generisan:\n{output}"
-            )
-            self.report_status_label.setProperty("statusBanner", "success")
-            self.report_status_label.style().unpolish(self.report_status_label)
-            self.report_status_label.style().polish(self.report_status_label)
-            self.report_status_label.setVisible(True)
+            self._show_success_message(f"Izvještaj uspješno generisan:\n{output}", use_banner=True)
 
         except Exception as e:
-            self.report_status_label.setText(f"❌ Greška: {str(e)}")
-            self.report_status_label.setProperty("statusBanner", "error")
-            self.report_status_label.style().unpolish(self.report_status_label)
-            self.report_status_label.style().polish(self.report_status_label)
-            self.report_status_label.setVisible(True)
+            self._show_error_message(f"Greška pri generisanju izvještaja:\n{str(e)}", use_banner=True)
         finally:
             self.btn_generate.setEnabled(True)
             self.btn_generate.setText("📊  Generiraj Excel izvještaj")

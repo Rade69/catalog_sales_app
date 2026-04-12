@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.gui.base_page import BasePage
 from app.gui.table_helpers import style_table, show_empty_state
 from app.services.customer_service import CustomerService
 from app.services.order_service import OrderService
@@ -44,7 +45,7 @@ _ORDER_STATUS_LABEL = {
 }
 
 
-class CustomersPage(QWidget):
+class CustomersPage(BasePage):
     """
     Stranica za upravljanje kupcima.
 
@@ -57,7 +58,6 @@ class CustomersPage(QWidget):
         super().__init__()
         self._selected_customer_id: Optional[int] = None
         self._worker: Optional[LoadCustomersWorker] = None
-        self._loading_label: Optional[QLabel] = None
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -154,10 +154,8 @@ class CustomersPage(QWidget):
         layout.addWidget(self.count_label)
 
         # Loading label (skriven dok se ne učitava)
-        self._loading_label = QLabel("Učitavanje kupaca...")
-        self._loading_label.setProperty("loading", True)
-        self._loading_label.hide()
-        layout.addWidget(self._loading_label)
+        loading_frame = self._create_loading_section()
+        layout.addWidget(loading_frame)
 
         return panel
 
@@ -286,18 +284,15 @@ class CustomersPage(QWidget):
         self._worker.error.connect(self._on_customers_error)
         self._worker.start()
 
-    def _set_loading_state(self, loading: bool) -> None:
-        """Postavlja UI u loading stanje."""
-        if loading:
-            self._loading_label.show()
-            self.new_btn.setEnabled(False)
-            self.delete_btn.setEnabled(False)
-        else:
-            self._loading_label.hide()
-            self.new_btn.setEnabled(True)
+    def _set_widgets_enabled(self, enabled: bool) -> None:
+        """Onemogućava ili omogućava interaktivne widget-e."""
+        self.new_btn.setEnabled(enabled)
+        if enabled:
             # Restore delete button state based on selection
             if self._selected_customer_id is not None:
                 self.delete_btn.setEnabled(True)
+        else:
+            self.delete_btn.setEnabled(False)
 
     def _on_customers_loaded(self, customers) -> None:
         """Handler za završetak učitavanja kupaca."""

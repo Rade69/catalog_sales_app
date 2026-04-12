@@ -26,12 +26,15 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.gui.base_page import BasePage
+from app.gui.pagination import PaginationWidget
+
 from app.services.payment_service import PaymentService
 from app.gui.icons import create_icon_label, get_pixmap
 from app.gui.workers import LoadInstallmentsWorker
 
 
-class PaymentsPage(QWidget):
+class PaymentsPage(BasePage):
     """
     Stranica za evidenciju uplata.
 
@@ -48,6 +51,7 @@ class PaymentsPage(QWidget):
         self._selected_customer_id: Optional[int] = None
         self._worker: Optional[LoadInstallmentsWorker] = None
         self._loading_label: Optional[QLabel] = None
+        self._pagination: Optional[PaginationWidget] = None
         self._init_ui()
         self._load_customers()
         self._load_installments()
@@ -224,6 +228,12 @@ class PaymentsPage(QWidget):
         )
 
         layout.addWidget(self.installments_table, 1)
+
+        # Paginacioni widget
+        self._pagination = PaginationWidget()
+        self._pagination.page_changed.connect(self._on_page_changed)
+        layout.addWidget(self._pagination)
+
         return panel
 
     def _build_right_panel(self) -> QFrame:
@@ -395,10 +405,19 @@ class PaymentsPage(QWidget):
         customer_id = self.customer_combo.currentData()
         search_text = self.search_edit.text().strip()
 
+        # Dohvati paginacione parametre
+        limit = 0
+        offset = 0
+        if self._pagination:
+            limit = self._pagination.get_limit()
+            offset = self._pagination.get_offset()
+
         self._worker = LoadInstallmentsWorker(
             filter_type=self._active_filter,
             search=search_text,
             customer_id=customer_id,
+            limit=limit,
+            offset=offset,
         )
         self._worker.finished.connect(self._on_installments_loaded)
         self._worker.error.connect(self._on_installments_error)
@@ -406,6 +425,7 @@ class PaymentsPage(QWidget):
 
     def _set_loading_state(self, loading: bool) -> None:
         """Postavlja UI u loading stanje."""
+        super()._set_loading_state(loading)
         if loading:
             if self._loading_label:
                 self._loading_label.show()
@@ -417,21 +437,18 @@ class PaymentsPage(QWidget):
             if hasattr(self, "installments_table"):
                 self.installments_table.setEnabled(True)
 
-    def _on_installments_loaded(self, installments) -> None:
+    def _on_installments_loaded(self, data) -> None:
         """Handler za završetak učitavanja rata."""
         self._set_loading_state(False)
-        self._populate_table(installments)
+        installments, total_count = data
+        self._populate_table(installments, total_count)
 
     def _on_installments_error(self, error_msg: str) -> None:
         """Handler za grešku prilikom učitavanja rata."""
         self._set_loading_state(False)
-        QMessageBox.critical(
-            self,
-            "Greška pri učitavanju",
-            f"Neuspješno učitavanje rata:\n{error_msg}"
-        )
+        self._show_error_message(f"Neuspješno učitavanje rata:\n{error_msg}")
 
-    def _populate_table(self, installments: list) -> None:
+    def _populate_table(self, installments: list, total_count: int) -> None:
         self.installments_table.setRowCount(0)
         self.installments_table.setRowCount(len(installments))
 
@@ -511,7 +528,11 @@ class PaymentsPage(QWidget):
                     if item and col != 6:
                         item.setBackground(QBrush(QColor("#fff8f8")))
 
-        self.count_label.setText(f"{len(installments)} rata")
+        # Ažuriraj paginaciju
+        if self._pagination:
+            self._pagination.set_total_items(total_count)
+
+        self.count_label.setText(f"{len(installments)} rata (ukupno {total_count})")
 
     def _set_filter(self, key: str) -> None:
         """Postavlja aktivni filter i učitava rate."""
@@ -522,12 +543,23 @@ class PaymentsPage(QWidget):
             btn.setIcon(get_pixmap(self._filter_icons[k], color, 16))
         self._active_filter = key
         
+        # Resetuj paginaciju na prvu stranicu kada se promijeni filter
+        if self._pagination:
+            self._pagination.set_current_page(1)
+        
         # AKO JE KUPEC ODABRAN → filteri se ignorišu (prikazuju se SVE rate)
         # Samo osvježi tabelu
         self._selected_customer_id = self.customer_combo.currentData()
         self._load_installments()
 
     def _apply_filters(self) -> None:
+        # Resetuj paginaciju na prvu stranicu kada se primijene filteri
+        if self._pagination:
+            self._pagination.set_current_page(1)
+        self._load_installments()
+
+    def _on_page_changed(self, page: int, page_size: int) -> None:
+        """Handler za promjenu stranice u paginaciji."""
         self._load_installments()
 
     # ------------------------------------------------------------------
@@ -619,11 +651,12 @@ class PaymentsPage(QWidget):
                 f"Uplata od {amount:.2f} EUR je evidentirana."
             )
             self._ocisti_formu()
+            # Osvježi trenutnu stranicu (ne resetuj paginaciju)
             self._load_installments()
         except ValueError as e:
-            QMessageBox.warning(self, "Greška", str(e))
+            self._show_error_message(str(e))
         except Exception as e:
-            QMessageBox.critical(self, "Greška", str(e))
+            self._show_error_message(str(e))
 
     def _ocisti_formu(self) -> None:
         self.amount_spin.setValue(0.01)
@@ -707,12 +740,12 @@ class PaymentsPage(QWidget):
 
         try:
             PaymentService.delete_payment(payment_id)
-            # Osvježi panel i tabelu
+            # Osvježi panel i tabelu (ostani na istoj stranici)
             if self._selected_installment_id:
-                self._show_installment_details(self._selected_installment_id)
+                self._load_payment_history(self._selected_installment_id)
             self._load_installments()
         except Exception as exc:
-            QMessageBox.warning(self, "Greška", str(exc))
+            self._show_error_message(str(exc))
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -720,3 +753,7 @@ class PaymentsPage(QWidget):
 
     def on_activate(self) -> None:
         self._load_installments()
+
+    def on_deactivate(self) -> None:
+        # Cleanup any resources if needed
+        pass

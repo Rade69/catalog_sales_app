@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Optional
 
 from sqlalchemy import func, or_, select
@@ -7,6 +8,48 @@ from sqlalchemy import func, or_, select
 from app.database.database import session_scope
 from app.database.models import Customer
 from app.dto import CustomerDTO, _to_customer_dto
+
+
+def validate_customer_input(
+    full_name: str,
+    phone: str = "",
+    city: str = "",
+    address: str = "",
+    note: str = "",
+) -> None:
+    """Validira input za kupca."""
+    # Validacija imena i prezimena
+    full_name = full_name.strip()
+    if not full_name:
+        raise ValueError("Ime i prezime je obavezno.")
+    if len(full_name) > 150:
+        raise ValueError("Ime i prezime ne smije biti duže od 150 karaktera.")
+    
+    # Validacija telefona (opciono)
+    phone = phone.strip()
+    if phone:
+        if len(phone) > 50:
+            raise ValueError("Telefon ne smije biti duži od 50 karaktera.")
+        
+        # Osnovna validacija telefona (brojevi, +, razmaci, zagrade)
+        phone_pattern = r'^[\d\s\+\-\(\)\.]+$'
+        if not re.match(phone_pattern, phone):
+            raise ValueError("Telefon sadrži nedozvoljene karaktere.")
+    
+    # Validacija grada (opciono)
+    city = city.strip()
+    if city and len(city) > 100:
+        raise ValueError("Grad ne smije biti duži od 100 karaktera.")
+    
+    # Validacija adrese (opciono)
+    address = address.strip()
+    if address and len(address) > 200:
+        raise ValueError("Adresa ne smije biti duža od 200 karaktera.")
+    
+    # Validacija napomene (opciono)
+    note = note.strip()
+    if note and len(note) > 500:
+        raise ValueError("Napomena ne smije biti duža od 500 karaktera.")
 
 
 class CustomerService:
@@ -46,17 +89,23 @@ class CustomerService:
         note: str = "",
     ) -> CustomerDTO:
         """Kreira novog kupca i vraća CustomerDTO."""
+        # Validiraj input
+        validate_customer_input(full_name, phone, city, address, note)
+        
+        # Strip values
         full_name = full_name.strip()
-        if not full_name:
-            raise ValueError("Ime i prezime je obavezno.")
+        phone = phone.strip()
+        city = city.strip()
+        address = address.strip()
+        note = note.strip()
 
         with session_scope() as session:
             customer = Customer(
                 full_name=full_name,
-                phone=phone.strip() or None,
-                city=city.strip() or None,
-                address=address.strip() or None,
-                note=note.strip() or None,
+                phone=phone or None,
+                city=city or None,
+                address=address or None,
+                note=note or None,
             )
             session.add(customer)
             session.flush()
@@ -73,9 +122,15 @@ class CustomerService:
         note: str = "",
     ) -> CustomerDTO:
         """Ažurira kupca i vraća CustomerDTO."""
+        # Validiraj input
+        validate_customer_input(full_name, phone, city, address, note)
+        
+        # Strip values
         full_name = full_name.strip()
-        if not full_name:
-            raise ValueError("Ime i prezime je obavezno.")
+        phone = phone.strip()
+        city = city.strip()
+        address = address.strip()
+        note = note.strip()
 
         with session_scope() as session:
             customer = session.get(Customer, customer_id)
@@ -83,10 +138,10 @@ class CustomerService:
                 raise ValueError("Kupac nije pronađen.")
 
             customer.full_name = full_name
-            customer.phone = phone.strip() or None
-            customer.city = city.strip() or None
-            customer.address = address.strip() or None
-            customer.note = note.strip() or None
+            customer.phone = phone or None
+            customer.city = city or None
+            customer.address = address or None
+            customer.note = note or None
             session.flush()
             session.refresh(customer)
             return _to_customer_dto(customer)

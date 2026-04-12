@@ -67,8 +67,32 @@ class PaymentService:
     def create_payment(installment_id: int, amount: str | float | Decimal, payment_date: date, note: str = '') -> PaymentDTO:
         """Kreira novu uplatu i vraća PaymentDTO."""
         amount_decimal = _to_decimal(amount)
+        
+        # Validacija iznosa
         if amount_decimal <= Decimal('0.00'):
             raise ValueError('Iznos uplate mora biti veći od 0.')
+        
+        if amount_decimal > Decimal('100000'):
+            raise ValueError('Iznos uplate ne smije biti veći od 100.000.')
+        
+        # Validacija decimalnih mjesta
+        if abs(amount_decimal.as_tuple().exponent) > 2:
+            raise ValueError('Iznos uplate može imati najviše 2 decimalna mjesta.')
+        
+        # Validacija datuma
+        today = date.today()
+        one_year_ago = date(today.year - 1, today.month, today.day)
+        
+        if payment_date > today:
+            raise ValueError('Datum uplate ne smije biti u budućnosti.')
+        
+        if payment_date < one_year_ago:
+            raise ValueError('Datum uplate ne smije biti stariji od 1 godine.')
+        
+        # Validacija napomene
+        note = note.strip()
+        if note and len(note) > 500:
+            raise ValueError('Napomena ne smije biti duža od 500 karaktera.')
 
         with session_scope() as session:
             installment = session.execute(
@@ -136,8 +160,10 @@ class PaymentService:
     def get_installments_for_payment(
         filter_type: str = "overdue",
         search: str = "",
-        customer_id: Optional[int] = None
-    ) -> List[InstallmentDTO]:
+        customer_id: Optional[int] = None,
+        limit: int = 0,
+        offset: int = 0,
+    ) -> tuple[List[InstallmentDTO], int]:
         """
         Vraća listu InstallmentDTO za prikaz u PaymentsPage.
 
@@ -149,6 +175,8 @@ class PaymentService:
         customer_id:
             None — svi kupci
             int — samo rate za odabranog kupca
+        limit, offset:
+            Paginacija - limit=0 vraća sve
         """
         from sqlalchemy import and_, extract, func
 
@@ -206,9 +234,18 @@ class PaymentService:
 
             stmt = stmt.order_by(Installment.due_date.asc())
 
+            # Brojanje ukupnog broja stavki
+            count_stmt = select(func.count()).select_from(stmt.subquery())
+            total_count = session.execute(count_stmt).scalar() or 0
+
+            # Primijeni paginaciju ako je limit > 0
+            if limit > 0:
+                stmt = stmt.limit(limit).offset(offset)
+
             installments = list(session.execute(stmt).scalars().unique())
             # Uključi denormalizovane podatke o narudžbi i kupcu
-            return [_to_installment_dto(inst, include_order_data=True) for inst in installments]
+            installments_dto = [_to_installment_dto(inst, include_order_data=True) for inst in installments]
+            return installments_dto, total_count
 
     @staticmethod
     def get_installment_details(installment_id: int) -> Optional[InstallmentDTO]:

@@ -22,10 +22,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.gui.base_page import BasePage
 from app.database.models import PriceList, PriceListItem
 from app.gui.table_helpers import style_table, create_numeric_item
 from app.services.price_list_service import PriceListService
 from app.gui.icons import create_icon_label, get_pixmap
+from app.gui.pagination import PaginationWidget
 
 
 class _ImportWorker(QThread):
@@ -50,19 +52,20 @@ class _ImportWorker(QThread):
             self.error.emit(str(exc))
 
 
-class PriceListPage(QWidget):
+class PriceListPage(BasePage):
     """Stranica za uvoz i pregled cjenovnika."""
 
     def __init__(self) -> None:
         super().__init__()
 
         self._price_lists: list[PriceList] = []
+        self._current_price_list_id: Optional[int] = None
+        self._current_filter_text: str = ""
         self._all_items: list[PriceListItem] = []
         self._excel_path: Optional[str] = None
         self._import_worker: Optional[_ImportWorker] = None
 
         self._init_ui()
-        self._load_price_lists()
 
     # ------------------------------------------------------------------
     # UI izgradnja
@@ -151,6 +154,27 @@ class PriceListPage(QWidget):
         self.items_search.textChanged.connect(self._filter_items)
         layout.addWidget(self.items_search)
 
+        # Edit
+        self.edit_btn = QPushButton("Izmeni")
+        self.edit_btn.setProperty("secondary", True)
+        self.edit_btn.setEnabled(False)
+        self.edit_btn.clicked.connect(self._edit_price_list)
+        layout.addWidget(self.edit_btn)
+
+        # Dupliciraj
+        self.duplicate_btn = QPushButton("Dupliciraj")
+        self.duplicate_btn.setProperty("secondary", True)
+        self.duplicate_btn.setEnabled(False)
+        self.duplicate_btn.clicked.connect(self._duplicate_price_list)
+        layout.addWidget(self.duplicate_btn)
+
+        # Export
+        self.export_btn = QPushButton("Izvezi")
+        self.export_btn.setProperty("secondary", True)
+        self.export_btn.setEnabled(False)
+        self.export_btn.clicked.connect(self._export_price_list)
+        layout.addWidget(self.export_btn)
+
         # Brisanje
         self.delete_btn = QPushButton("Obriši")
         self.delete_btn.setProperty("deleteBtn", True)
@@ -206,6 +230,12 @@ class PriceListPage(QWidget):
 
         style_table(self.items_table)
         layout.addWidget(self.items_table)
+        
+        # Paginacioni widget
+        self.pagination_widget = PaginationWidget()
+        self.pagination_widget.page_changed.connect(self._on_page_changed)
+        layout.addWidget(self.pagination_widget)
+        
         return container
 
     # ------------------------------------------------------------------
@@ -236,11 +266,11 @@ class PriceListPage(QWidget):
             name = Path(self._excel_path).stem
             self.name_edit.setText(name)
         if not name:
-            self._show_error("Naziv cjenovnika je obavezan.")
+            self._show_error_message("Greška", "Naziv cjenovnika je obavezan.", use_banner=True)
             self.name_edit.setFocus()
             return
         if not self._excel_path:
-            self._show_error("Excel fajl nije odabran.")
+            self._show_error_message("Greška", "Excel fajl nije odabran.", use_banner=True)
             return
 
         self.import_btn.setEnabled(False)
@@ -280,18 +310,10 @@ class PriceListPage(QWidget):
             self.excel_label.style().polish(self.excel_label)
 
     def _show_success(self, text: str) -> None:
-        self.status_banner.setText(text)
-        self.status_banner.setProperty("statusBanner", "success")
-        self.status_banner.style().unpolish(self.status_banner)
-        self.status_banner.style().polish(self.status_banner)
-        self.status_banner.setVisible(True)
+        self._show_status_banner(text, "success")
 
     def _show_error(self, text: str) -> None:
-        self.status_banner.setText(f"<b>Greška:</b> {text}")
-        self.status_banner.setProperty("statusBanner", "error")
-        self.status_banner.style().unpolish(self.status_banner)
-        self.status_banner.style().polish(self.status_banner)
-        self.status_banner.setVisible(True)
+        self._show_status_banner(f"<b>Greška:</b> {text}", "error")
 
     # ------------------------------------------------------------------
     # Lista cjenovnika (combobox)
@@ -317,14 +339,30 @@ class PriceListPage(QWidget):
 
     def _on_combo_changed(self, index: int) -> None:
         if index < 0 or index >= len(self._price_lists):
+            self.edit_btn.setEnabled(False)
+            self.duplicate_btn.setEnabled(False)
+            self.export_btn.setEnabled(False)
             self.delete_btn.setEnabled(False)
+            self._current_price_list_id = None
+            self.items_table.setRowCount(0)
+            self.items_count_label.setText("")
+            self.pagination_widget.reset()
             return
+        
         pl = self._price_lists[index]
+        self.edit_btn.setEnabled(True)
+        self.duplicate_btn.setEnabled(True)
+        self.export_btn.setEnabled(True)
         self.delete_btn.setEnabled(True)
-        items = PriceListService.get_items(pl.id)
-        self._all_items = items
-        self._populate_items(items)
+        self._current_price_list_id = pl.id
+        
+        # Resetuj filter i paginaciju
+        self._current_filter_text = ""
         self.items_search.clear()
+        self.pagination_widget.reset()
+        
+        # Učitaj prvu stranicu
+        self._load_current_page()
 
     # ------------------------------------------------------------------
     # Brisanje
@@ -335,21 +373,20 @@ class PriceListPage(QWidget):
         if index < 0 or index >= len(self._price_lists):
             return
         pl = self._price_lists[index]
-        reply = QMessageBox.question(
-            self,
+        
+        confirm = self._confirm_action(
             "Potvrda brisanja",
             f"Da li sigurno želiš obrisati cjenovnik '{pl.name}' i sve njegove stavke?\n"
-            "Ova radnja se ne može poništiti.",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No,
+            "Ova radnja se ne može poništiti."
         )
-        if reply != QMessageBox.Yes:
+        
+        if not confirm:
             return
         try:
             PriceListService.delete(pl.id)
             self._load_price_lists()
         except Exception as e:
-            self._show_error(str(e))
+            self._show_error_message("Greška", str(e), use_banner=True)
 
     # ------------------------------------------------------------------
     # Stavke cjenovnika
@@ -394,26 +431,333 @@ class PriceListPage(QWidget):
 
     def _filter_items(self, text: str) -> None:
         """Filtrira redove tabele bez DB upita."""
-        query = text.lower().strip()
-        visible = 0
-        for row in range(self.items_table.rowCount()):
-            name_item = self.items_table.item(row, 2)
-            code_item = self.items_table.item(row, 3)
-            supplier_item = self.items_table.item(row, 1)
-            match = (
-                not query
-                or (name_item and query in name_item.text().lower())
-                or (code_item and query in code_item.text().lower())
-                or (supplier_item and query in supplier_item.text().lower())
+        self._current_filter_text = text.lower().strip()
+        
+        # Ako imamo filter tekst, učitaj ponovo podatke sa filterom
+        if self._current_filter_text:
+            self._load_current_page()
+        else:
+            # Ako je filter prazan, samo prikaži sve redove
+            for row in range(self.items_table.rowCount()):
+                self.items_table.setRowHidden(row, False)
+            self.items_count_label.setText(f"{self.items_table.rowCount()} stavki")
+
+    # ------------------------------------------------------------------
+    # Paginacija
+    # ------------------------------------------------------------------
+
+    def _on_page_changed(self, page: int, page_size: int) -> None:
+        """Rukuje promjenom stranice u paginacionom widgetu."""
+        self._load_current_page()
+
+    def _load_current_page(self) -> None:
+        """Učitava trenutnu stranicu stavki."""
+        if not self._current_price_list_id:
+            return
+        
+        self._set_loading_state(True)
+        
+        try:
+            # Dohvati podatke sa paginacijom
+            limit = self.pagination_widget.get_limit()
+            offset = self.pagination_widget.get_offset()
+            
+            items, total_count = PriceListService.get_items(
+                self._current_price_list_id,
+                limit=limit,
+                offset=offset
             )
-            self.items_table.setRowHidden(row, not match)
-            if match:
-                visible += 1
-        self.items_count_label.setText(f"{visible} stavki")
+            
+            # Ako imamo filter tekst, primijeni ga lokalno
+            if self._current_filter_text:
+                filtered_items = []
+                for item in items:
+                    if (self._current_filter_text in item.name.lower() or
+                        (item.supplier_code and self._current_filter_text in item.supplier_code.lower()) or
+                        (item.supplier and self._current_filter_text in item.supplier.lower())):
+                        filtered_items.append(item)
+                items = filtered_items
+            
+            # Popuni tabelu
+            self._populate_items(items)
+            
+            # Ažuriraj paginaciju sa ukupnim brojem stavki
+            self.pagination_widget.set_total_items(total_count)
+            
+            # Ažuriraj label sa brojem prikazanih stavki
+            if self._current_filter_text:
+                self.items_count_label.setText(f"{len(items)} stavki (filtrirano)")
+            else:
+                self.items_count_label.setText(f"{len(items)} stavki")
+                
+        except Exception as e:
+            self._show_error_message("Greška", f"Greška pri učitavanju stavki: {e}", use_banner=True)
+        finally:
+            self._set_loading_state(False)
 
     # ------------------------------------------------------------------
     # Aktivacija stranice
     # ------------------------------------------------------------------
 
     def on_activate(self) -> None:
+        super().on_activate()
         self._load_price_lists()
+    
+    def on_deactivate(self) -> None:
+        """Resetuj stanje kada se stranica deaktivira."""
+        super().on_deactivate()
+        self._current_price_list_id = None
+        self._current_filter_text = ""
+        self.pagination_widget.reset()
+
+    # ------------------------------------------------------------------
+    # Izmena cenovnika
+    # ------------------------------------------------------------------
+
+    def _edit_price_list(self) -> None:
+        """Otvara dijalog za izmenu naziva cenovnika."""
+        index = self.price_list_combo.currentIndex()
+        if index < 0 or index >= len(self._price_lists):
+            return
+        
+        pl = self._price_lists[index]
+        current_name = pl.name
+        
+        # Otvori edit dijalog
+        from PySide6.QtWidgets import (
+            QDialog,
+            QDialogButtonBox,
+            QHBoxLayout,
+            QLabel,
+            QLineEdit,
+            QVBoxLayout,
+            QFrame,
+        )
+        
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Izmeni cenovnik")
+        dialog.setMinimumWidth(400)
+        dialog.setModal(True)
+        
+        layout = QVBoxLayout(dialog)
+        layout.setSpacing(14)
+        layout.setContentsMargins(20, 20, 20, 20)
+        
+        # Naziv
+        r1 = QHBoxLayout()
+        lbl1 = QLabel("Naziv cenovnika:")
+        lbl1.setFixedWidth(130)
+        name_edit = QLineEdit(current_name)
+        name_edit.setPlaceholderText("npr. Cenovnik Mart 2026")
+        r1.addWidget(lbl1)
+        r1.addWidget(name_edit, 1)
+        layout.addLayout(r1)
+        
+        # Info o izvornom fajlu
+        if pl.source_filename:
+            r2 = QHBoxLayout()
+            lbl2 = QLabel("Izvor:")
+            lbl2.setFixedWidth(130)
+            source_label = QLabel(pl.source_filename)
+            source_label.setStyleSheet("color: #6b7280; font-style: italic;")
+            r2.addWidget(lbl2)
+            r2.addWidget(source_label, 1)
+            layout.addLayout(r2)
+        
+        # Separator
+        sep = QFrame()
+        sep.setFrameShape(QFrame.HLine)
+        sep.setStyleSheet("color: #e5e7eb;")
+        layout.addWidget(sep)
+        
+        # Gumbi
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        ok_btn = buttons.button(QDialogButtonBox.Ok)
+        ok_btn.setText("Sačuvaj izmene")
+        ok_btn.setStyleSheet(
+            "background:#3b82f6;color:white;border:none;"
+            "border-radius:8px;padding:8px 16px;font-weight:700;"
+        )
+        buttons.button(QDialogButtonBox.Cancel).setText("Odustani")
+        layout.addWidget(buttons)
+        
+        def on_accept():
+            new_name = name_edit.text().strip()
+            if not new_name:
+                self._show_error_message("Greška", "Naziv cenovnika je obavezan.", parent=dialog)
+                return
+            if new_name == current_name:
+                dialog.reject()
+                return
+            dialog.accept()
+        
+        buttons.accepted.connect(on_accept)
+        buttons.rejected.connect(dialog.reject)
+        
+        if dialog.exec() != QDialog.Accepted:
+            return
+        
+        # Ažuriraj cenovnik
+        try:
+            PriceListService.update_price_list(
+                price_list_id=pl.id,
+                name=name_edit.text().strip()
+            )
+            self._show_success(f"Cenovnik '{name_edit.text().strip()}' je ažuriran.")
+            self._load_price_lists()
+        except ValueError as e:
+            self._show_error_message("Greška", str(e), use_banner=True)
+        except Exception as e:
+            self._show_error_message("Greška pri izmeni", str(e), use_banner=True)
+
+    # ------------------------------------------------------------------
+    # Duplikacija cenovnika
+    # ------------------------------------------------------------------
+
+    def _duplicate_price_list(self) -> None:
+        """Otvara dijalog za duplikaciju cenovnika."""
+        index = self.price_list_combo.currentIndex()
+        if index < 0 or index >= len(self._price_lists):
+            return
+        
+        pl = self._price_lists[index]
+        current_name = pl.name
+        
+        # Otvori duplicate dijalog
+        from PySide6.QtWidgets import (
+            QDialog,
+            QDialogButtonBox,
+            QHBoxLayout,
+            QLabel,
+            QLineEdit,
+            QVBoxLayout,
+            QFrame,
+        )
+        
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Dupliciraj cenovnik")
+        dialog.setMinimumWidth(400)
+        dialog.setModal(True)
+        
+        layout = QVBoxLayout(dialog)
+        layout.setSpacing(14)
+        layout.setContentsMargins(20, 20, 20, 20)
+        
+        # Naziv
+        r1 = QHBoxLayout()
+        lbl1 = QLabel("Naziv kopije:")
+        lbl1.setFixedWidth(130)
+        name_edit = QLineEdit(f"Kopija - {current_name}")
+        name_edit.setPlaceholderText("npr. Kopija - Cenovnik Mart 2026")
+        r1.addWidget(lbl1)
+        r1.addWidget(name_edit, 1)
+        layout.addLayout(r1)
+        
+        # Info o originalu
+        r2 = QHBoxLayout()
+        lbl2 = QLabel("Original:")
+        lbl2.setFixedWidth(130)
+        original_label = QLabel(current_name)
+        original_label.setStyleSheet("color: #6b7280; font-style: italic;")
+        r2.addWidget(lbl2)
+        r2.addWidget(original_label, 1)
+        layout.addLayout(r2)
+        
+        if pl.source_filename:
+            r3 = QHBoxLayout()
+            lbl3 = QLabel("Izvor:")
+            lbl3.setFixedWidth(130)
+            source_label = QLabel(pl.source_filename)
+            source_label.setStyleSheet("color: #6b7280; font-style: italic;")
+            r3.addWidget(lbl3)
+            r3.addWidget(source_label, 1)
+            layout.addLayout(r3)
+        
+        # Separator
+        sep = QFrame()
+        sep.setFrameShape(QFrame.HLine)
+        sep.setStyleSheet("color: #e5e7eb;")
+        layout.addWidget(sep)
+        
+        # Gumbi
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        ok_btn = buttons.button(QDialogButtonBox.Ok)
+        ok_btn.setText("Kreiraj kopiju")
+        ok_btn.setStyleSheet(
+            "background:#3b82f6;color:white;border:none;"
+            "border-radius:8px;padding:8px 16px;font-weight:700;"
+        )
+        buttons.button(QDialogButtonBox.Cancel).setText("Odustani")
+        layout.addWidget(buttons)
+        
+        def on_accept():
+            new_name = name_edit.text().strip()
+            if not new_name:
+                self._show_error_message("Greška", "Naziv kopije je obavezan.", parent=dialog)
+                return
+            dialog.accept()
+        
+        buttons.accepted.connect(on_accept)
+        buttons.rejected.connect(dialog.reject)
+        
+        if dialog.exec() != QDialog.Accepted:
+            return
+        
+        # Kreiraj kopiju
+        try:
+            new_id = PriceListService.duplicate_price_list(
+                price_list_id=pl.id,
+                new_name=name_edit.text().strip()
+            )
+            self._show_success(f"Cenovnik '{name_edit.text().strip()}' je kreiran kao kopija.")
+            self._load_price_lists()
+            # Selektuj novi cenovnik
+            for i in range(self.price_list_combo.count()):
+                if self.price_list_combo.itemData(i) == new_id:
+                    self.price_list_combo.setCurrentIndex(i)
+                    break
+        except ValueError as e:
+            self._show_error_message("Greška", str(e), use_banner=True)
+        except Exception as e:
+            self._show_error_message("Greška pri duplikaciji", str(e), use_banner=True)
+
+    # ------------------------------------------------------------------
+    # Export cenovnika
+    # ------------------------------------------------------------------
+
+    def _export_price_list(self) -> None:
+        """Otvara dijalog za export cenovnika u Excel fajl."""
+        index = self.price_list_combo.currentIndex()
+        if index < 0 or index >= len(self._price_lists):
+            return
+        
+        pl = self._price_lists[index]
+        
+        # Otvori file dialog za odabir lokacije
+        from PySide6.QtWidgets import QFileDialog
+        
+        # Predloženi naziv fajla
+        suggested_name = f"cenovnik_{pl.name.replace(' ', '_').lower()}.xlsx"
+        
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Sačuvaj cenovnik kao Excel",
+            suggested_name,
+            "Excel fajlovi (*.xlsx);;Svi fajlovi (*)"
+        )
+        
+        if not file_path:
+            return  # Korisnik je otkazao
+        
+        # Dodaj .xlsx ekstenziju ako nedostaje
+        if not file_path.lower().endswith('.xlsx'):
+            file_path += '.xlsx'
+        
+        # Pokreni export
+        try:
+            output_path = PriceListService.export_price_list(pl.id, file_path)
+            self._show_success(f"Cenovnik '{pl.name}' je uspešno izvežen u: {output_path.name}")
+        except ValueError as e:
+            self._show_error_message("Greška", str(e), use_banner=True)
+        except Exception as e:
+            self._show_error_message("Greška pri exportu", str(e), use_banner=True)

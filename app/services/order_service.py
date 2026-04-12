@@ -79,18 +79,45 @@ class OrderService:
         if not customer_id:
             return False, "Obavezno odabrati kupca."
 
-        if not product_name or not product_name.strip():
+        product_name = product_name.strip()
+        if not product_name:
             return False, "Obavezno unijeti naziv proizvoda."
+        
+        if len(product_name) > 200:
+            return False, "Naziv proizvoda ne smije biti duži od 200 karaktera."
 
         try:
             price_val = Decimal(price.replace(",", ".").strip())
+            
+            # Validacija cijene
             if price_val <= 0:
                 return False, "Cijena mora biti veća od 0."
+            
+            if price_val > Decimal('1000000'):
+                return False, "Cijena ne smije biti veća od 1.000.000."
+            
+            # Validacija decimalnih mjesta
+            if abs(price_val.as_tuple().exponent) > 2:
+                return False, "Cijena može imati najviše 2 decimalna mjesta."
+                
         except (ValueError, TypeError, AttributeError, Exception):
             return False, "Neispravna cijena."
 
+        # Validacija broja rata
+        if not isinstance(installments, int):
+            return False, "Broj rata mora biti cijeli broj."
+        
         if installments < 1 or installments > 10:
             return False, "Broj rata mora biti između 1 i 10."
+        
+        # Provjera minimalne rate (ako je cijena poznata)
+        try:
+            price_val = Decimal(price.replace(",", ".").strip())
+            min_installment = price_val / installments
+            if min_installment < Decimal('10'):
+                return False, f"Minimalna rata ({min_installment:.2f}) je manja od 10. Povećajte cijenu ili smanjite broj rata."
+        except:
+            pass  # Ako ne možemo izračunati, preskočimo ovu provjeru
 
         return True, ""
 

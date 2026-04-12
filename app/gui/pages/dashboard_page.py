@@ -12,13 +12,12 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
-    QMessageBox,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
-    QWidget,
 )
 
+from app.gui.base_page import BasePage
 from app.gui.icons import get_pixmap
 from app.gui.table_helpers import style_table, show_empty_state, create_numeric_item
 from app.services.dashboard_service import (
@@ -31,7 +30,7 @@ from app.services.dashboard_service import (
 from app.gui.workers import LoadDashboardWorker
 
 
-class DashboardPage(QWidget):
+class DashboardPage(BasePage):
     """
     Dashboard stranica - početni pregled poslovanja.
 
@@ -49,7 +48,6 @@ class DashboardPage(QWidget):
         self._loading_label: Optional[QLabel] = None
 
         self._init_ui()
-        self._load_dashboard_data()
 
     def _init_ui(self) -> None:
         """Inicijalizuje UI komponente."""
@@ -573,6 +571,8 @@ class DashboardPage(QWidget):
 
     def _set_loading_state(self, loading: bool) -> None:
         """Postavlja UI u loading stanje."""
+        super()._set_loading_state(loading)
+        
         if loading:
             self._loading_label.show()
             # Disable interakciju sa tabelama tokom učitavanja
@@ -609,8 +609,7 @@ class DashboardPage(QWidget):
     def _on_dashboard_error(self, error_msg: str) -> None:
         """Handler za grešku prilikom učitavanja dashboarda."""
         self._set_loading_state(False)
-        QMessageBox.critical(
-            self,
+        self._show_error_message(
             "Greška pri učitavanju",
             f"Neuspješno učitavanje podataka:\n{error_msg}"
         )
@@ -622,4 +621,5 @@ class DashboardPage(QWidget):
 
     def on_activate(self) -> None:
         """Osvježava podatke kada se stranica aktivira."""
+        super().on_activate()
         self._load_dashboard_data()

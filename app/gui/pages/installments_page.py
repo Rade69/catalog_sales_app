@@ -15,17 +15,17 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QLineEdit,
-    QMessageBox,
     QPushButton,
     QSplitter,
     QTableWidget,
     QTableWidgetItem,
     QTextEdit,
     QVBoxLayout,
-    QWidget,
 )
 
+from app.gui.base_page import BasePage
 from app.gui.table_helpers import style_table
+from app.gui.pagination import PaginationWidget
 from app.services.payment_service import PaymentService
 from app.services.customer_service import CustomerService
 from app.gui.workers import LoadInstallmentsWorker
@@ -56,7 +56,7 @@ _FILTER_TABS = [
 ]
 
 
-class InstallmentsPage(QWidget):
+class InstallmentsPage(BasePage):
     """
     Stranica za pregled svih rata.
 
@@ -74,10 +74,13 @@ class InstallmentsPage(QWidget):
         self._selected_installment_id: Optional[int] = None
         self._worker: Optional[LoadInstallmentsWorker] = None
         self._loading_label: Optional[QLabel] = None
+        self._pagination_widget: Optional[PaginationWidget] = None
+        self._current_page = 1
+        self._page_size = 25
+        self._total_count = 0
 
         self._init_ui()
         self._load_customers()
-        self._load_installments()
 
     # ------------------------------------------------------------------
     # UI izgradnja
@@ -191,6 +194,12 @@ class InstallmentsPage(QWidget):
         self.table.itemSelectionChanged.connect(self._on_row_selected)
         layout.addWidget(self.table)
 
+        # Paginacija widget
+        self._pagination_widget = PaginationWidget()
+        self._pagination_widget.page_changed.connect(self._on_page_changed)
+        self._pagination_widget.page_size_changed.connect(self._on_page_size_changed)
+        layout.addWidget(self._pagination_widget)
+
         return panel
 
     def _build_right_panel(self) -> QFrame:
@@ -301,6 +310,8 @@ class InstallmentsPage(QWidget):
             filter_type=self._active_filter,
             search=search,
             customer_id=customer_id,
+            limit=self._page_size,
+            offset=(self._current_page - 1) * self._page_size,
         )
         self._worker.finished.connect(self._on_installments_loaded)
         self._worker.error.connect(self._on_installments_error)
@@ -315,14 +326,25 @@ class InstallmentsPage(QWidget):
             self._loading_label.hide()
             self.table.setEnabled(True)
 
-    def _on_installments_loaded(self, installments) -> None:
+    def _on_installments_loaded(self, data) -> None:
         """Handler za završetak učitavanja rata."""
         self._set_loading_state(False)
+        
+        installments, total_count = data
+        self._total_count = total_count
+        
+        # Ažuriraj paginaciju
+        if self._pagination_widget:
+            self._pagination_widget.update_pagination(
+                current_page=self._current_page,
+                page_size=self._page_size,
+                total_items=total_count
+            )
 
         # Ažuriraj naslov i brojač
         filter_labels = dict(_FILTER_TABS)
         self.table_title.setText(filter_labels.get(self._active_filter, "Rate"))
-        self.count_label.setText(f"{len(installments)} stavki")
+        self.count_label.setText(f"{len(installments)} stavki (ukupno: {total_count})")
 
         if not installments:
             self.table.setRowCount(1)
@@ -392,8 +414,7 @@ class InstallmentsPage(QWidget):
     def _on_installments_error(self, error_msg: str) -> None:
         """Handler za grešku prilikom učitavanja rata."""
         self._set_loading_state(False)
-        QMessageBox.critical(
-            self,
+        self._show_error_message(
             "Greška pri učitavanju",
             f"Neuspješno učitavanje rata:\n{error_msg}"
         )
@@ -462,7 +483,19 @@ class InstallmentsPage(QWidget):
         self.lbl_placeno_val.setText(f"{paid:.2f} EUR")
         self.lbl_preostalo_val.setText(f"{remaining:.2f} EUR")
 
+    def _on_page_changed(self, page: int) -> None:
+        """Handler za promenu stranice."""
+        self._current_page = page
+        self._load_installments()
+
+    def _on_page_size_changed(self, page_size: int) -> None:
+        """Handler za promenu veličine stranice."""
+        self._page_size = page_size
+        self._current_page = 1  # Resetuj na prvu stranicu
+        self._load_installments()
+
     def on_activate(self) -> None:
         """Poziva se kada se stranica aktivira."""
+        super().on_activate()
         self._load_customers()
         self._load_installments()

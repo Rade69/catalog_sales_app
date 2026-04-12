@@ -55,3 +55,10 @@ def get_log_dir() -> Path:
     d = get_data_dir() / "logs"
     d.mkdir(parents=True, exist_ok=True)
     return d
+
+
+def get_user_data_dir() -> Path:
+    """Vrati putanju do korisničkih podataka (uvek koristi platform-specifičnu lokaciju)."""
+    d = _user_data_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    return d

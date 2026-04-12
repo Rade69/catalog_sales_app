@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.database.database import DATABASE_URL, DB_PATH
+from app.database.database import get_db_path
 from app.gui.icons import get_pixmap
 from app.utils.logger import LOG_FILE
 from app.utils.paths import get_backup_dir
@@ -464,7 +464,7 @@ class MainWindow(QMainWindow):
     def _do_backup(self) -> None:
         """Kreira backup baze podataka."""
         try:
-            backup_file = BackupManager.backup_database(DB_PATH, get_backup_dir())
+            backup_file = BackupManager.backup_database(get_db_path(), get_backup_dir())
 
             QMessageBox.information(
                 self,
@@ -536,7 +536,7 @@ class MainWindow(QMainWindow):
         status_bar.setStyleSheet("background: #111827; color: #9ca3af; font-size: 11px;")
         
         # Lijevo: putanja do baze
-        db_path = DATABASE_URL.replace("sqlite:///", "")
+        db_path = str(get_db_path())
         self.status_db_label = QLabel(f"📁 DB: {db_path}")
         status_bar.addPermanentWidget(self.status_db_label, 0)
         
@@ -569,12 +569,11 @@ class MainWindow(QMainWindow):
         Backup se kreira u get_backup_dir() sa keep=7 (zadržava 7 zadnjih backup-a).
         Greška pri backup-u ne smije spriječiti zatvaranje aplikacije.
         """
-        from app.database.database import DB_PATH
         from app.utils.paths import get_backup_dir
         
         try:
             BackupManager.auto_backup(
-                db_path=DB_PATH,
+                db_path=get_db_path(),
                 backup_dir=get_backup_dir(),
                 keep=7
             )

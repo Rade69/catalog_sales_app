@@ -16,16 +16,16 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
-    QWidget,
 )
 
+from app.gui.base_page import BasePage
 from app.gui.table_helpers import style_table, create_numeric_item
 from app.services.campaign_service import CampaignService
 from app.gui.icons import create_icon_label, get_pixmap
 from app.gui.workers import LoadCampaignsWorker, LoadCampaignProductsWorker
 
 
-class CampaignsPage(QWidget):
+class CampaignsPage(BasePage):
     """Stranica za upravljanje kampanjama i import iz Excel-a."""
 
     def __init__(self) -> None:
@@ -38,7 +38,6 @@ class CampaignsPage(QWidget):
 
         self._init_ui()
         self._connect_signals()
-        self._load_campaigns()
 
     def _init_ui(self) -> None:
         """Inicijalizuje UI komponente."""
@@ -98,6 +97,28 @@ class CampaignsPage(QWidget):
         refresh_pixmap = get_pixmap("refresh", "#374151", 18)
         self.refresh_btn.setIcon(refresh_pixmap)
         header_row.addWidget(self.refresh_btn)
+
+        self.edit_btn = QPushButton("Izmeni")
+        self.edit_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3b82f6;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 8px 14px;
+                font-weight: 700;
+            }
+            QPushButton:hover { background-color: #2563eb; }
+            QPushButton:disabled {
+                background-color: #f3f4f6;
+                color: #d1d5db;
+            }
+        """)
+        self.edit_btn.setEnabled(False)
+        self.edit_btn.clicked.connect(self._edit_campaign)
+        edit_pixmap = get_pixmap("edit", "#ffffff", 18)
+        self.edit_btn.setIcon(edit_pixmap)
+        header_row.addWidget(self.edit_btn)
 
         self.delete_btn = QPushButton("Izbriši")
         self.delete_btn.setStyleSheet("""
@@ -227,6 +248,8 @@ class CampaignsPage(QWidget):
 
     def _set_loading_state(self, loading: bool) -> None:
         """Postavlja UI u loading stanje."""
+        super()._set_loading_state(loading)
+        
         if loading:
             if self._loading_label:
                 self._loading_label.show()
@@ -271,8 +294,7 @@ class CampaignsPage(QWidget):
     def _on_campaigns_error(self, error_msg: str) -> None:
         """Handler za grešku prilikom učitavanja kampanja."""
         self._set_loading_state(False)
-        QMessageBox.critical(
-            self,
+        self._show_error_message(
             "Greška pri učitavanju",
             f"Neuspješno učitavanje kampanja:\n{error_msg}"
         )
@@ -281,21 +303,25 @@ class CampaignsPage(QWidget):
         """Poziva se kad se odabere red u tabeli kampanja."""
         row = self.table.currentRow()
         if row < 0:
+            self.edit_btn.setEnabled(False)
             self.delete_btn.setEnabled(False)
             return
         id_item = self.table.item(row, 0)
         if id_item is None:
+            self.edit_btn.setEnabled(False)
             self.delete_btn.setEnabled(False)
             return
         try:
             campaign_id = int(id_item.text())
         except ValueError:
+            self.edit_btn.setEnabled(False)
             self.delete_btn.setEnabled(False)
             return
         name_item = self.table.item(row, 1)
         campaign_name = name_item.text() if name_item else f"Kampanja #{campaign_id}"
         self._load_campaign_products(campaign_id, campaign_name)
-        # Omogući brisanje kad je kampanja odabrana
+        # Omogući edit i brisanje kad je kampanja odabrana
+        self.edit_btn.setEnabled(True)
         self.delete_btn.setEnabled(True)
 
     def _load_campaign_products(self, campaign_id: int, campaign_name: str) -> None:
@@ -324,8 +350,7 @@ class CampaignsPage(QWidget):
 
     def _on_campaign_products_error(self, error_msg: str) -> None:
         """Handler za grešku prilikom učitavanja proizvoda."""
-        QMessageBox.critical(
-            self,
+        self._show_error_message(
             "Greška pri učitavanju",
             f"Neuspješno učitavanje proizvoda:\n{error_msg}"
         )
@@ -374,11 +399,188 @@ class CampaignsPage(QWidget):
         ]
         self._populate_products_table(filtered)
 
+    def _edit_campaign(self) -> None:
+        """Otvara dijalog za editovanje odabrane kampanje."""
+        row = self.table.currentRow()
+        if row < 0:
+            self._show_error_message("Upozorenje", "Odaberite kampanju za izmenu.")
+            return
+        
+        # Dohvati ID i trenutne podatke kampanje
+        id_item = self.table.item(row, 0)
+        name_item = self.table.item(row, 1)
+        start_item = self.table.item(row, 2)
+        end_item = self.table.item(row, 3)
+        
+        if not all([id_item, name_item, start_item, end_item]):
+            return
+        
+        try:
+            campaign_id = int(id_item.text())
+        except ValueError:
+            return
+        
+        current_name = name_item.text()
+        current_start = start_item.text()
+        current_end = end_item.text()
+        
+        # Dohvati trenutni status kampanje iz baze
+        try:
+            campaign = self.campaign_service.get_campaign(campaign_id)
+            current_status = campaign.status if campaign else None
+        except:
+            current_status = None
+        
+        # Otvori edit dijalog
+        from PySide6.QtCore import QDate
+        from PySide6.QtWidgets import (
+            QDialog,
+            QDialogButtonBox,
+            QHBoxLayout,
+            QLabel,
+            QLineEdit,
+            QDateEdit,
+            QVBoxLayout,
+            QFrame,
+            QComboBox,
+        )
+        from app.database.models import CampaignStatus
+        
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Izmeni kampanju")
+        dialog.setMinimumWidth(480)
+        dialog.setModal(True)
+        
+        layout = QVBoxLayout(dialog)
+        layout.setSpacing(14)
+        layout.setContentsMargins(20, 20, 20, 20)
+        
+        # Naziv
+        r1 = QHBoxLayout()
+        lbl1 = QLabel("Naziv kampanje:")
+        lbl1.setFixedWidth(130)
+        name_edit = QLineEdit(current_name)
+        r1.addWidget(lbl1)
+        r1.addWidget(name_edit, 1)
+        layout.addLayout(r1)
+        
+        # Datum početka
+        r2 = QHBoxLayout()
+        lbl2 = QLabel("Datum početka:")
+        lbl2.setFixedWidth(130)
+        start_date = QDateEdit()
+        start_date.setCalendarPopup(True)
+        start_date.setDisplayFormat("dd.MM.yyyy.")
+        # Parsiraj datum iz stringa "dd.mm.yyyy."
+        try:
+            day, month, year = current_start.replace(".", "").split(".")
+            start_date.setDate(QDate(int(year), int(month), int(day)))
+        except:
+            start_date.setDate(QDate.currentDate())
+        r2.addWidget(lbl2)
+        r2.addWidget(start_date, 1)
+        layout.addLayout(r2)
+        
+        # Datum završetka
+        r3 = QHBoxLayout()
+        lbl3 = QLabel("Datum završetka:")
+        lbl3.setFixedWidth(130)
+        end_date = QDateEdit()
+        end_date.setCalendarPopup(True)
+        end_date.setDisplayFormat("dd.MM.yyyy.")
+        # Parsiraj datum iz stringa "dd.mm.yyyy."
+        try:
+            day, month, year = current_end.replace(".", "").split(".")
+            end_date.setDate(QDate(int(year), int(month), int(day)))
+        except:
+            end_date.setDate(QDate.currentDate().addDays(30))
+        r3.addWidget(lbl3)
+        r3.addWidget(end_date, 1)
+        layout.addLayout(r3)
+        
+        # Status
+        r4 = QHBoxLayout()
+        lbl4 = QLabel("Status:")
+        lbl4.setFixedWidth(130)
+        status_combo = QComboBox()
+        status_combo.addItem("Draft", CampaignStatus.DRAFT)
+        status_combo.addItem("Active", CampaignStatus.ACTIVE)
+        status_combo.addItem("Archived", CampaignStatus.ARCHIVED)
+        # Postavi trenutni status
+        if current_status:
+            for i in range(status_combo.count()):
+                if status_combo.itemData(i) == current_status:
+                    status_combo.setCurrentIndex(i)
+                    break
+        r4.addWidget(lbl4)
+        r4.addWidget(status_combo, 1)
+        layout.addLayout(r4)
+        
+        # Separator
+        sep = QFrame()
+        sep.setFrameShape(QFrame.HLine)
+        sep.setStyleSheet("color: #e5e7eb;")
+        layout.addWidget(sep)
+        
+        # Gumbi
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        ok_btn = buttons.button(QDialogButtonBox.Ok)
+        ok_btn.setText("Sačuvaj izmene")
+        ok_btn.setStyleSheet(
+            "background:#3b82f6;color:white;border:none;"
+            "border-radius:8px;padding:8px 16px;font-weight:700;"
+        )
+        buttons.button(QDialogButtonBox.Cancel).setText("Odustani")
+        layout.addWidget(buttons)
+        
+        def on_accept():
+            name = name_edit.text().strip()
+            if not name:
+                self._show_error_message("Greška", "Naziv kampanje je obavezan.", parent=dialog)
+                return
+            start = start_date.date().toPython()
+            end = end_date.date().toPython()
+            if start > end:
+                self._show_error_message(
+                    "Greška",
+                    "Datum početka mora biti prije datuma završetka.",
+                    parent=dialog
+                )
+                return
+            dialog.accept()
+        
+        buttons.accepted.connect(on_accept)
+        buttons.rejected.connect(dialog.reject)
+        
+        if dialog.exec() != QDialog.Accepted:
+            return
+        
+        # Ažuriraj kampanju
+        try:
+            status = status_combo.currentData()
+            self.campaign_service.update_campaign(
+                campaign_id=campaign_id,
+                name=name_edit.text().strip(),
+                start_date=start_date.date().toPython(),
+                end_date=end_date.date().toPython(),
+                status=status,
+                note=None  # TODO: Dodati polje za napomenu ako postoji
+            )
+            self._show_success_message(
+                "Uspješno",
+                f"Kampanja '{name_edit.text().strip()}' je ažurirana."
+            )
+            self._load_campaigns()
+        except ValueError as e:
+            self._show_error_message("Greška", str(e))
+        except Exception as e:
+            self._show_error_message("Greška pri izmeni", str(e))
+    
     def _delete_campaign(self) -> None:
         """Briše odabranu kampanju nakon potvrde."""
         row = self.table.currentRow()
         if row < 0:
-            QMessageBox.warning(self, "Upozorenje", "Odaberite kampanju za brisanje.")
+            self._show_error_message("Upozorenje", "Odaberite kampanju za brisanje.")
             return
 
         # Dohvati ID i naziv kampanje
@@ -395,25 +597,22 @@ class CampaignsPage(QWidget):
         campaign_name = name_item.text()
 
         # Potvrdni dijalog
-        confirm = QMessageBox.question(
-            self,
+        confirm = self._confirm_action(
             "Potvrdi brisanje",
             f"Da li ste sigurni da želite obrisati kampanju?\n\n"
             f"Kampanja: {campaign_name}\n\n"
             "Ova akcija će obrisati kampanju i sve pripadajuće proizvode.\n"
-            "Ova akcija se ne može poništiti.",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
+            "Ova akcija se ne može poništiti."
         )
 
-        if confirm != QMessageBox.Yes:
+        if not confirm:
             return
 
         # Briši kampanju
         try:
             self.campaign_service.delete_campaign(campaign_id)
-            QMessageBox.information(
-                self, "Uspješno",
+            self._show_success_message(
+                "Uspješno",
                 f"Kampanja '{campaign_name}' je obrisana."
             )
             self.delete_btn.setEnabled(False)
@@ -425,9 +624,9 @@ class CampaignsPage(QWidget):
             self.products_title.setText("Proizvodi u kampanji")
             self.products_count_label.setText("")
         except ValueError as e:
-            QMessageBox.warning(self, "Greška", str(e))
+            self._show_error_message("Greška", str(e))
         except Exception as e:
-            QMessageBox.critical(self, "Greška pri brisanju", str(e))
+            self._show_error_message("Greška pri brisanju", str(e))
 
     def _open_import_dialog(self) -> None:
         """Otvara modalni dijalog za import kampanje."""
@@ -534,18 +733,18 @@ class CampaignsPage(QWidget):
         def on_accept():
             name = name_edit.text().strip()
             if not name:
-                QMessageBox.warning(dialog, "Greška", "Naziv kampanje je obavezan.")
+                self._show_error_message("Greška", "Naziv kampanje je obavezan.", parent=dialog)
                 return
             if not selected_path["value"]:
-                QMessageBox.warning(dialog, "Greška", "Odaberi Excel fajl.")
+                self._show_error_message("Greška", "Odaberi Excel fajl.", parent=dialog)
                 return
             start = start_date.date().toPython()
             end = end_date.date().toPython()
             if start > end:
-                QMessageBox.warning(
-                    dialog,
+                self._show_error_message(
                     "Greška",
                     "Datum početka mora biti prije datuma završetka.",
+                    parent=dialog
                 )
                 return
             dialog.accept()
@@ -564,18 +763,18 @@ class CampaignsPage(QWidget):
                 start_date=start_date.date().toPython(),
                 end_date=end_date.date().toPython(),
             )
-            QMessageBox.information(
-                self,
+            self._show_success_message(
                 "Import uspješan",
                 f"Uvezeno {result.total_rows} redova.\n"
                 f"Novih proizvoda: {result.new_products}\n"
                 f"Matchovanih: {result.matched_products}\n"
-                f"Preskočeno: {result.skipped_rows}",
+                f"Preskočeno: {result.skipped_rows}"
             )
             self._load_campaigns()
         except Exception as e:
-            QMessageBox.critical(self, "Greška pri importu", str(e))
+            self._show_error_message("Greška pri importu", str(e))
 
     def on_activate(self) -> None:
         """Poziva se kada se stranica aktivira."""
+        super().on_activate()
         self._load_campaigns()

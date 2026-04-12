@@ -11,8 +11,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.gui.base_page import BasePage
 
-class CrudPreviewPage(QWidget):
+
+class CrudPreviewPage(BasePage):
     def __init__(self, title: str, form_labels: list[str], table_headers: list[str], sample_rows: list[list[str]]) -> None:
         super().__init__()
         root = QHBoxLayout(self)
@@ -74,3 +76,11 @@ class CrudPreviewPage(QWidget):
 
         root.addWidget(form_card, 1)
         root.addWidget(table_card, 2)
+
+    def on_activate(self) -> None:
+        # Simple pages don't need special activation
+        pass
+
+    def on_deactivate(self) -> None:
+        # Simple pages don't need special deactivation
+        pass

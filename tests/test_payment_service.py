@@ -461,20 +461,20 @@ class TestPaymentServiceGetInstallmentsForPayment:
         installment.due_date = date.today() - timedelta(days=10)
         db.commit()
         
-        installments = PaymentService.get_installments_for_payment(filter_type="overdue")
+        installments, total_count = PaymentService.get_installments_for_payment(filter_type="overdue")
         
         assert len(installments) > 0
         assert any(inst.id == installment.id for inst in installments)
 
     def test_get_installments_unpaid(self, db, sample_order):
         """Dohvatanje svih neplaćenih rata."""
-        installments = PaymentService.get_installments_for_payment(filter_type="unpaid")
+        installments, total_count = PaymentService.get_installments_for_payment(filter_type="unpaid")
         
         assert len(installments) > 0
 
     def test_get_installments_all(self, db, sample_order):
         """Dohvatanje svih rata."""
-        installments = PaymentService.get_installments_for_payment(filter_type="all")
+        installments, total_count = PaymentService.get_installments_for_payment(filter_type="all")
         
         assert len(installments) >= len(sample_order.installments)
 
@@ -482,7 +482,7 @@ class TestPaymentServiceGetInstallmentsForPayment:
         """Filtriranje rata po kupcu."""
         customer_id = sample_order.customer_id
         
-        installments = PaymentService.get_installments_for_payment(
+        installments, total_count = PaymentService.get_installments_for_payment(
             filter_type="all",
             customer_id=customer_id
         )
@@ -497,7 +497,7 @@ class TestPaymentServiceGetInstallmentsForPayment:
         # sample_order je ORM objekat iz fixture-a, ima customer relaciju
         customer_name = sample_order.customer.full_name if sample_order.customer else "Test"
         
-        installments = PaymentService.get_installments_for_payment(
+        installments, total_count = PaymentService.get_installments_for_payment(
             filter_type="all",
             search=customer_name
         )
